@@ -8,6 +8,7 @@ import VisualArchive from "./components/VisualArchive";
 import AddCourseModal from "./components/AddCourseModal";
 import VisualizerModal from "./components/VisualizerModal";
 import LightbulbFab from "./components/LightbulbFab";
+import ChatSidebar from "./components/ChatSidebar";
 import { INITIAL_COURSES } from "./data/initialData";
 
 export default function App() {
@@ -16,8 +17,9 @@ export default function App() {
   const [selectedCourseId, setSelectedCourseId] = useState("cmsc341");
   const [selectedNoteId, setSelectedNoteId] = useState("avl-rotation");
 
-  // Modals state
+  // Modals & Panels state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [visualizerModal, setVisualizerModal] = useState({
     isOpen: false,
     concept: "AVL Tree Left-Right Double Rotation",
@@ -91,29 +93,29 @@ export default function App() {
     });
   };
 
-  const handleAddNote = (courseId) => {
-    const course = courses[courseId];
+  const handleAddNote = (courseId, initialTitle, initialTopic) => {
+    const course = courses[courseId] || courses[selectedCourseId];
     if (!course) return;
 
     const newNoteId = "note_" + Date.now();
     const newNote = {
       id: newNoteId,
       date: "Today",
-      title: "New Concept Synthesis",
-      topic: "Core Invariant",
+      title: initialTitle || "New Concept Synthesis",
+      topic: initialTopic || "Core Invariant",
       visual: "1 Visual",
-      content: `# New Concept Synthesis\nCourse: ${course.code}\nDate: ${new Date().toLocaleDateString()}\n\nStart capturing definitions, formulas, and questions for Lumen...`
+      content: `# ${initialTitle || "New Concept Synthesis"}\nCourse: ${course.code}\nDate: ${new Date().toLocaleDateString()}\n\nStart capturing definitions, formulas, and questions for Lumen...`
     };
 
     setCourses((prev) => ({
       ...prev,
-      [courseId]: {
+      [course.id]: {
         ...course,
         notes: [newNote, ...(course.notes || [])]
       }
     }));
 
-    setSelectedCourseId(courseId);
+    setSelectedCourseId(course.id);
     setSelectedNoteId(newNoteId);
     setActiveView("note");
   };
@@ -137,6 +139,64 @@ export default function App() {
     });
   };
 
+  // AI Assistant Action Dispatcher
+  const handleExecuteAction = (action) => {
+    if (!action) return;
+
+    if (action.type === "ADD_DEADLINE") {
+      const courseId = action.course_id && courses[action.course_id] ? action.course_id : selectedCourseId;
+      const newDeadline = {
+        id: "d_" + Date.now(),
+        title: action.title || "New Assignment",
+        date: action.date || "Upcoming",
+        due: action.due || "In 7 days",
+        sub: action.sub || "Online Submission",
+        color: "var(--tag-orange-text)"
+      };
+
+      setCourses((prev) => {
+        const c = prev[courseId];
+        if (!c) return prev;
+        return {
+          ...prev,
+          [courseId]: {
+            ...c,
+            deadlines: [newDeadline, ...(c.deadlines || [])]
+          }
+        };
+      });
+
+      setSelectedCourseId(courseId);
+      setActiveView("course");
+    } else if (action.type === "ADD_TODO") {
+      const courseId = action.course_id && courses[action.course_id] ? action.course_id : selectedCourseId;
+      handleAddTodo(courseId, {
+        id: "t_" + Date.now(),
+        text: action.text || "New action item",
+        meta: action.meta || "Added by Lumen Assistant",
+        done: false
+      });
+      setSelectedCourseId(courseId);
+      setActiveView("course");
+    } else if (action.type === "START_STUDY") {
+      if (action.course_id && courses[action.course_id]) {
+        setSelectedCourseId(action.course_id);
+      }
+      setActiveView("study");
+    } else if (action.type === "VISUALIZE") {
+      const courseCode = action.course_id && courses[action.course_id] ? courses[action.course_id].code : "STEM";
+      handleOpenVisualizer(action.concept, courseCode);
+    } else if (action.type === "CREATE_NOTE") {
+      const courseId = action.course_id && courses[action.course_id] ? action.course_id : selectedCourseId;
+      handleAddNote(courseId, action.title, action.topic);
+    } else if (action.type === "NAVIGATE") {
+      if (action.course_id && courses[action.course_id]) {
+        setSelectedCourseId(action.course_id);
+      }
+      setActiveView(action.view || "home");
+    }
+  };
+
   // Current selections
   const currentCourse = courses[selectedCourseId] || Object.values(courses)[0];
   const currentNote = (currentCourse?.notes || []).find((n) => n.id === selectedNoteId) || currentCourse?.notes?.[0];
@@ -151,6 +211,7 @@ export default function App() {
         onNavigate={handleNavigate}
         onOpenAddModal={() => setIsAddModalOpen(true)}
         onSelectCourseSubview={handleSelectCourseSubview}
+        onOpenChat={() => setIsChatOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -158,7 +219,13 @@ export default function App() {
         {/* Sticky Topbar */}
         <div className="notion-topbar">
           <div className="breadcrumbs">
-            <span onClick={() => handleNavigate("home")}>Lumen</span>
+            <span
+              onClick={() => setIsChatOpen(true)}
+              style={{ fontWeight: 600, color: "var(--text-main)", cursor: "pointer" }}
+              title="Click to chat with Lumen"
+            >
+              ✨ Lumen
+            </span>
             <span>/</span>
             {activeView === "home" && <span>Home Dashboard</span>}
             {activeView === "course" && <span>{currentCourse?.code}</span>}
@@ -248,8 +315,19 @@ export default function App() {
         </div>
       </main>
 
-      {/* Floating Bottom-Right Amber Lightbulb */}
-      <LightbulbFab onOpenVisualizer={handleOpenVisualizer} />
+      {/* Floating Bottom-Right Amber Lightbulb (Opens Lumen Chat) */}
+      <LightbulbFab
+        isChatOpen={isChatOpen}
+        onToggleChat={() => setIsChatOpen((prev) => !prev)}
+      />
+
+      {/* Slide-out AI Assistant Chat Sidebar */}
+      <ChatSidebar
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        courses={courses}
+        onExecuteAction={handleExecuteAction}
+      />
 
       {/* Modal: Add Course from Syllabus PDF */}
       <AddCourseModal

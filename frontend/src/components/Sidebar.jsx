@@ -6,7 +6,8 @@ export default function Sidebar({
   selectedCourseId,
   onNavigate,
   onOpenAddModal,
-  onSelectCourseSubview
+  onSelectCourseSubview,
+  onOpenChat
 }) {
   const [expandedCourses, setExpandedCourses] = useState({ [selectedCourseId]: true });
 
@@ -17,17 +18,29 @@ export default function Sidebar({
 
   return (
     <aside className="notion-sidebar">
-      {/* Workspace Header */}
-      <div className="workspace-header" onClick={() => onNavigate("home")}>
+      {/* Workspace Header - Clicking Lumen opens the AI Action Chat */}
+      <div className="workspace-header" onClick={onOpenChat} title="Click to open Lumen AI Assistant">
         <div className="workspace-title-row">
           <div className="workspace-avatar">L</div>
           <span>Lumen Workspace</span>
         </div>
-        <span style={{ fontSize: "10px", color: "var(--text-tertiary)" }}>▾</span>
+        <span style={{ fontSize: "11px", color: "var(--tag-blue-text)" }}>✨ Ask</span>
       </div>
 
       {/* Main Pages */}
       <div className="sidebar-section">
+        <div
+          className="nav-row"
+          onClick={onOpenChat}
+          style={{ color: "var(--tag-blue-text)" }}
+        >
+          <div className="nav-icon" style={{ color: "var(--tag-blue-text)" }}>
+            ✨
+          </div>
+          <span className="nav-title" style={{ fontWeight: 600 }}>Ask Lumen</span>
+          <span className="notion-tag blue" style={{ fontSize: "10px", padding: "1px 5px" }}>Gemini</span>
+        </div>
+
         <div
           className={`nav-row ${activeView === "home" ? "active" : ""}`}
           onClick={() => onNavigate("home")}

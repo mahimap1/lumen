@@ -42,7 +42,7 @@ Syllabus Text:
 {raw_text[:8000]}
 """
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.5-flash-lite',
             contents=prompt,
         )
         text = response.text
@@ -74,7 +74,7 @@ Requirements:
 3. Do not include external dependencies or Markdown fences. Return ONLY the raw HTML string with embedded <style> and <script>.
 """
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.5-flash-lite',
             contents=prompt,
         )
         text = response.text
@@ -116,7 +116,7 @@ Provide a crisp, intuitive breakdown in valid JSON:
 }}
 """
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.5-flash-lite',
             contents=prompt,
         )
         match = re.search(r'\{.*\}', response.text, re.DOTALL)
