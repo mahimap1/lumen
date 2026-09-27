@@ -12,6 +12,8 @@ from services.voice_service import generate_voice_narration
 from services.career_service import get_course_career_roi
 from services.memory_service import get_student_session_context, record_student_interaction
 from services.chat_service import process_chat_message
+from services.backboard_service import create_backboard_session, send_chat_message
+from services.sqlite_service import execute_campus_sql, get_database_schema_summary
 
 app = FastAPI(
     title="Lumen API",
@@ -480,6 +482,69 @@ def chat_with_lumen(req: ChatRequest):
         "reply": result.get("reply", ""),
         "action": result.get("action")
     }
+
+
+class SessionCreateRequest(BaseModel):
+    title: Optional[str] = "New Study Session"
+    course_context: Optional[str] = None
+
+
+class SessionMessageRequest(BaseModel):
+    thread_id: str
+    message: str
+    course_context: Optional[str] = None
+
+
+class DatabaseQueryRequest(BaseModel):
+    query: str
+
+
+@app.post("/api/sessions/create")
+async def create_session(req: SessionCreateRequest):
+    """
+    Creates a new conversational thread in Backboard (or Gemini local thread).
+    """
+    session_data = await create_backboard_session(title=req.title or "New Study Session")
+    return {
+        "status": "success",
+        "session": session_data
+    }
+
+
+@app.post("/api/sessions/message")
+async def send_message_to_session(req: SessionMessageRequest):
+    """
+    Sends a message to a session thread via Backboard.
+    Executes tool calling (querying campus.db and generating interactive widgets)
+    using Gemini under the hood.
+    """
+    result = await send_chat_message(
+        thread_id=req.thread_id,
+        message=req.message,
+        course_context=req.course_context
+    )
+    return result
+
+
+@app.get("/api/database/schema")
+def get_database_schema():
+    """
+    Returns schema summary of campus.db tables and columns.
+    """
+    schema = get_database_schema_summary()
+    return {
+        "status": "success",
+        "schema": schema
+    }
+
+
+@app.post("/api/database/query")
+def run_campus_query(req: DatabaseQueryRequest):
+    """
+    Safely executes a read-only SELECT query against the campus dataset.
+    """
+    res = execute_campus_sql(req.query)
+    return res
 
 
 if __name__ == "__main__":

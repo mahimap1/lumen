@@ -7,3 +7,4 @@ pypdf>=4.0.0
 python-multipart>=0.0.9
 google-genai>=0.1.0
 elevenlabs>=1.0.0
+backboard-sdk>=1.5.0
