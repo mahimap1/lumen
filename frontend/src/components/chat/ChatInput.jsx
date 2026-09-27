@@ -102,11 +102,6 @@ export default function ChatInput({
           </Button>
         </div>
       </div>
-
-      {/* Footer Disclaimer */}
-      <p className="text-[11px] text-zinc-500 text-center">
-        Lumen AI Copilot • Powered by Backboard.io persistent memory & UMBC campus intelligence dataset
-      </p>
     </div>
   );
 }

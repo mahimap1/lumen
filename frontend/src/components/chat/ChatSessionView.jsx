@@ -4,8 +4,9 @@ import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Database, Code2, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { sendSessionMessage } from "@/services/api";
+import { LumenOrbSphere } from "../LumenOrb";
 
 export default function ChatSessionView({
   session,
@@ -17,6 +18,11 @@ export default function ChatSessionView({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Strip leading emoji from title if any
+  const cleanTitle = (session?.title || "Study Session")
+    .replace(/^[\p{Emoji}\u2000-\u3300\s]+/gu, "")
+    .trim() || session?.title || "Study Session";
+
   // Initialize or restore session messages
   useEffect(() => {
     if (!session) return;
@@ -25,8 +31,8 @@ export default function ChatSessionView({
     } else {
       // Clean welcoming prompt tailored to this session / track
       const initialGreeting = session.description
-        ? `Welcome to your study session on **${session.title}**!\n\nI have access to the UMBC campus dataset and can query course requirements, analyze alumni salaries, or generate interactive widgets for you. How can I help you today?`
-        : `Hello! I'm Lumen, your academic copilot for **${session.title || "this study session"}**.\n\nAsk me any question about course concepts, prerequisites, or alumni career outcomes.`;
+        ? `Welcome to your study session on **${cleanTitle}**!\n\nI have access to the UMBC campus dataset and can query course requirements, analyze alumni salaries, or generate interactive widgets for you. How can I help you today?`
+        : `Hello! I'm Lumen, your academic copilot for **${cleanTitle}**.\n\nAsk me any question about course concepts, prerequisites, or alumni career outcomes.`;
 
       setMessages([
         {
@@ -59,7 +65,7 @@ export default function ChatSessionView({
 
     try {
       const threadId = session.thread_id || session.id;
-      const courseContext = track ? `${track.code} ${track.name}` : session.title;
+      const courseContext = track ? `${track.code} ${track.name}` : cleanTitle;
 
       const replyData = await sendSessionMessage(threadId, textToSend, courseContext);
 
@@ -109,7 +115,7 @@ export default function ChatSessionView({
       {
         id: `reinit-${Date.now()}`,
         role: "assistant",
-        content: `Conversation cleared. Ready for your questions on **${session?.title || "your studies"}**!`,
+        content: `Conversation cleared. Ready for your questions on **${cleanTitle}**!`,
         tool_executions: [],
         widgets: []
       }
@@ -119,7 +125,7 @@ export default function ChatSessionView({
   if (!session) {
     return (
       <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
-        Select a session or click the yellow orb in the bottom right to start a new Lumen session.
+        Select a session or start a new Lumen session.
       </div>
     );
   }
@@ -128,25 +134,22 @@ export default function ChatSessionView({
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950/40 relative overflow-hidden">
-      {/* Session Top Header Bar */}
-      <header className="flex-none px-6 py-3 border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md flex items-center justify-between z-10">
-        <div className="flex items-center gap-3">
-          <span className="text-xl">{session.icon || "⚡"}</span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold text-zinc-100 tracking-tight">
-                {session.title}
-              </h1>
-              {track && (
-                <Badge variant="outline" className="text-[11px] py-0 px-1.5 text-blue-400 border-blue-500/30 bg-blue-500/10">
-                  {track.code}
-                </Badge>
-              )}
-            </div>
-            <p className="text-[11.5px] text-zinc-400 truncate max-w-md">
-              {session.description || "Active conversational study thread with Backboard persistent memory"}
-            </p>
-          </div>
+      {/* Centered Top Header Bar (No emojis, no subtitle, centered title & tag) */}
+      <header className="flex-none px-6 py-3.5 border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md flex items-center justify-between relative z-10">
+        <div className="w-16" /> {/* Balance spacer */}
+
+        <div className="flex items-center gap-2.5 mx-auto">
+          <h1 className="text-sm font-semibold text-zinc-100 tracking-tight">
+            {cleanTitle}
+          </h1>
+          {track && (
+            <Badge
+              variant="outline"
+              className="text-[11px] py-0.5 px-2 text-blue-400 border-blue-500/30 bg-blue-500/10 font-medium tracking-wide"
+            >
+              {track.code}
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -163,33 +166,35 @@ export default function ChatSessionView({
         </div>
       </header>
 
-      {/* Main Conversation Scroller */}
+      {/* Main Conversation Scroller with glowing Lumen Orb anchored to the left */}
       <MessageScroller className="flex-1">
-        {messages.map((m) => (
-          <ChatMessage
-            key={m.id}
-            message={m}
-            onOpenVisualizer={onOpenVisualizer}
-          />
-        ))}
-
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="flex items-start gap-4 animate-in fade-in">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center shadow-md relative overflow-hidden flex-shrink-0"
-              style={{
-                background: "radial-gradient(circle at 35% 30%, #fef08a 0%, #facc15 35%, #eab308 70%, #ca8a04 100%)",
-              }}
-            >
-              <Sparkles className="w-4 h-4 text-zinc-950 stroke-[2.2] animate-spin" />
-            </div>
-            <div className="rounded-2xl px-4 py-3 bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs flex items-center gap-2 shadow-sm">
-              <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 animate-ping" />
-              <span>Lumen is consulting campus data & reasoning...</span>
-            </div>
+        <div className="flex gap-4 sm:gap-6 items-start w-full">
+          {/* Glowing 3D Lumen Orb on the left of the messages */}
+          <div className="sticky top-2 pt-1 flex-shrink-0 hidden sm:block animate-in fade-in duration-500">
+            <LumenOrbSphere size={44} />
           </div>
-        )}
+
+          {/* Messages Column */}
+          <div className="flex-1 min-w-0 space-y-6">
+            {messages.map((m) => (
+              <ChatMessage
+                key={m.id}
+                message={m}
+                onOpenVisualizer={onOpenVisualizer}
+              />
+            ))}
+
+            {/* Loading Indicator */}
+            {isLoading && (
+              <div className="flex items-center gap-3 py-2 px-1 animate-in fade-in">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400 animate-ping" />
+                <span className="text-zinc-400 text-xs font-medium">
+                  Lumen is querying campus data & reasoning...
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
       </MessageScroller>
 
       {/* Fixed Bottom Input Bar (ChatGPT / Gemini dock) */}

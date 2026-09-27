@@ -149,40 +149,33 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="notion-main">
-        {/* Sticky Topbar with Breadcrumbs */}
-        <div className="notion-topbar">
-          <div className="breadcrumbs">
-            <span
-              onClick={() => handleNavigate("four-year-plan")}
-              style={{ fontWeight: 600, color: "var(--text-main)", cursor: "pointer" }}
-            >
-              Lumen Workspace
-            </span>
-            <span>/</span>
-            {activeView === "four-year-plan" && <span>Four Year Plan</span>}
-            {activeView === "alumni-pathways" && <span>Alumni Pathways</span>}
-            {activeView === "widgets" && <span>Widgets</span>}
-            {activeView === "career" && <span>Career Pathways & ROI</span>}
-            {activeView === "session" && (
-              <>
-                <span onClick={() => handleNavigate("four-year-plan")} style={{ cursor: "pointer" }}>
-                  Sessions
-                </span>
-                <span>/</span>
-                {currentTrack && (
-                  <>
-                    <span style={{ color: "var(--text-secondary)" }}>{currentTrack.code}</span>
-                    <span>/</span>
-                  </>
-                )}
-                <span>{currentSession?.title || "Study Session"}</span>
-              </>
-            )}
+        {/* Sticky Topbar with Breadcrumbs (hidden in session view for clean full-height chat) */}
+        {activeView !== "session" && (
+          <div className="notion-topbar">
+            <div className="breadcrumbs">
+              <span
+                onClick={() => handleNavigate("four-year-plan")}
+                style={{ fontWeight: 600, color: "var(--text-main)", cursor: "pointer" }}
+              >
+                Lumen Workspace
+              </span>
+              <span>/</span>
+              {activeView === "four-year-plan" && <span>Four Year Plan</span>}
+              {activeView === "alumni-pathways" && <span>Alumni Pathways</span>}
+              {activeView === "widgets" && <span>Widgets</span>}
+              {activeView === "career" && <span>Career Pathways & ROI</span>}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Content Container */}
-        <div className="notion-content-container" style={{ height: activeView === "session" ? "calc(100vh - 45px)" : "auto", padding: activeView === "session" ? 0 : undefined }}>
+        <div
+          className="notion-content-container"
+          style={{
+            height: activeView === "session" ? "100vh" : "auto",
+            padding: activeView === "session" ? 0 : undefined,
+          }}
+        >
           {activeView === "four-year-plan" && (
             <FourYearPlanView onStartSessionFromCourse={handleStartSessionFromCourse} />
           )}
@@ -208,8 +201,12 @@ export default function App() {
         </div>
       </main>
 
-      {/* Floating Yellow Orb: Click to Start New Lumen Session */}
-      <LumenOrb onClick={() => handleStartLumenSession()} isCreating={isCreatingSession} />
+      {/* Floating Yellow Orb: Fades out in session view and anchors to the left of messages */}
+      <LumenOrb
+        onClick={() => handleStartLumenSession()}
+        isCreating={isCreatingSession}
+        isHidden={activeView === "session"}
+      />
 
       {/* Modal: Interactive Concept Visualizer */}
       <VisualizerModal

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,9 +9,7 @@ import {
   Code2,
   Copy,
   Check,
-  Sparkles,
   Maximize2,
-  ExternalLink,
   Layers
 } from "lucide-react";
 
@@ -32,29 +30,14 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
 
   return (
     <div
-      className={`group flex gap-3.5 sm:gap-4 transition-opacity ${
-        isAssistant ? "items-start" : "items-start justify-end"
+      className={`group flex transition-opacity ${
+        isAssistant ? "justify-start" : "justify-end"
       }`}
     >
-      {/* Assistant Avatar */}
-      {isAssistant && (
-        <div className="flex-shrink-0 mt-0.5">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center shadow-md relative overflow-hidden"
-            style={{
-              background: "radial-gradient(circle at 35% 30%, #fef08a 0%, #facc15 35%, #eab308 70%, #ca8a04 100%)",
-              boxShadow: "0 0 10px rgba(250, 204, 21, 0.35)",
-            }}
-          >
-            <Sparkles className="w-4 h-4 text-zinc-950 stroke-[2.2]" />
-          </div>
-        </div>
-      )}
-
       {/* Message Content Container */}
-      <div className={`flex flex-col max-w-[88%] sm:max-w-[82%] ${isAssistant ? "items-start" : "items-end"}`}>
-        {/* Role & Name Header */}
-        <div className="flex items-center gap-2 mb-1.5 px-0.5 text-xs text-zinc-400 font-medium">
+      <div className={`flex flex-col w-full max-w-[92%] sm:max-w-[85%] ${isAssistant ? "items-start" : "items-end"}`}>
+        {/* Role & Badge */}
+        <div className="flex items-center gap-2 mb-1 px-1 text-xs text-zinc-400 font-medium">
           <span>{isAssistant ? "Lumen" : "You"}</span>
           {isAssistant && message.engine && (
             <span className="text-[10px] text-zinc-500 bg-zinc-800/80 px-1.5 py-0.2 rounded border border-zinc-700/50">
@@ -65,15 +48,78 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
 
         {/* Message Bubble / Body */}
         <div
-          className={`relative rounded-2xl px-4 py-3.5 text-sm leading-relaxed transition-all shadow-sm ${
+          className={`relative rounded-2xl px-4 py-3.5 text-sm leading-relaxed transition-all shadow-sm w-full ${
             isAssistant
               ? "bg-zinc-900/90 text-zinc-100 border border-zinc-800/80"
               : "bg-blue-600 text-white rounded-br-sm"
           }`}
         >
-          {/* Formatted Content */}
-          <div className="prose prose-invert prose-sm max-w-none space-y-2 whitespace-pre-wrap leading-relaxed">
-            {formatContent(message.content)}
+          {/* Formatted Content with ReactMarkdown */}
+          <div className="leading-relaxed">
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => (
+                  <p className="mb-2.5 last:mb-0 leading-relaxed text-zinc-200">
+                    {children}
+                  </p>
+                ),
+                strong: ({ children }) => (
+                  <strong className="font-semibold text-white">
+                    {children}
+                  </strong>
+                ),
+                em: ({ children }) => (
+                  <em className="italic text-zinc-300">{children}</em>
+                ),
+                ul: ({ children }) => (
+                  <ul className="my-2.5 ml-4 list-disc space-y-1 text-zinc-200">
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="my-2.5 ml-4 list-decimal space-y-1 text-zinc-200">
+                    {children}
+                  </ol>
+                ),
+                li: ({ children }) => (
+                  <li className="leading-relaxed">{children}</li>
+                ),
+                code: ({ inline, className, children, ...props }) => {
+                  return (
+                    <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-yellow-300 font-mono text-xs border border-zinc-700/50">
+                      {children}
+                    </code>
+                  );
+                },
+                pre: ({ children }) => (
+                  <pre className="my-3 p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 font-mono text-xs text-yellow-300/90 overflow-x-auto">
+                    {children}
+                  </pre>
+                ),
+                h1: ({ children }) => (
+                  <h1 className="text-base font-bold text-white mt-3 mb-1.5">
+                    {children}
+                  </h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-sm font-bold text-white mt-2.5 mb-1">
+                    {children}
+                  </h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-xs font-bold text-zinc-200 mt-2 mb-1 uppercase tracking-wide">
+                    {children}
+                  </h3>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-2 border-yellow-400/60 pl-3 my-2 text-zinc-400 italic">
+                    {children}
+                  </blockquote>
+                ),
+              }}
+            >
+              {message.content || ""}
+            </ReactMarkdown>
           </div>
 
           {/* Tool Executions (e.g. SQLite queries on campus dataset) */}
@@ -208,7 +254,7 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
 
         {/* Action Bar (Copy) */}
         {isAssistant && (
-          <div className="flex items-center gap-1.5 mt-1.5 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1.5 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               type="button"
               onClick={handleCopy}
@@ -230,22 +276,6 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
           </div>
         )}
       </div>
-
-      {/* User Avatar */}
-      {!isAssistant && (
-        <Avatar className="w-8 h-8 rounded-full border border-zinc-700 bg-zinc-800 flex-shrink-0 mt-0.5">
-          <AvatarFallback className="text-xs font-semibold text-zinc-300 bg-zinc-800">
-            ME
-          </AvatarFallback>
-        </Avatar>
-      )}
     </div>
   );
-}
-
-// Minimal text formatting helper for clean Markdown paragraphs and code snippets
-function formatContent(text = "") {
-  if (!text) return null;
-  // If text has markdown code blocks, render cleanly
-  return text;
 }

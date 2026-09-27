@@ -151,20 +151,6 @@ export default function Sidebar({
                       {track.code}
                     </span>
                   </div>
-
-                  {!hasSessions && (
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        color: "var(--text-tertiary)",
-                        padding: "1px 4px",
-                        borderRadius: "3px"
-                      }}
-                      title="Click to start a session"
-                    >
-                      +
-                    </span>
-                  )}
                 </div>
 
                 {/* Sub-sessions under this track */}
