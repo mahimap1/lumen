@@ -329,3 +329,75 @@ export async function sendSessionMessage(threadId, message, courseContext = null
   };
 }
 
+export async function streamSessionMessage({
+  threadId,
+  message,
+  courseContext = null,
+  onMeta,
+  onDelta,
+  onToolStart,
+  onToolResult,
+  onWidget,
+  onDone,
+  onError
+}) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/sessions/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: threadId,
+        message,
+        course_context: courseContext
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (!trimmed || !trimmed.startsWith("data:")) continue;
+        const jsonStr = trimmed.slice(5).trim();
+        if (!jsonStr) continue;
+
+        try {
+          const evt = JSON.parse(jsonStr);
+          if (evt.type === "meta") {
+            onMeta && onMeta(evt);
+          } else if (evt.type === "delta") {
+            onDelta && onDelta(evt.delta);
+          } else if (evt.type === "tool_start") {
+            onToolStart && onToolStart(evt);
+          } else if (evt.type === "tool_result") {
+            onToolResult && onToolResult(evt);
+          } else if (evt.type === "widget") {
+            onWidget && onWidget(evt.widget);
+          } else if (evt.type === "done") {
+            onDone && onDone(evt);
+          }
+        } catch (pe) {
+          console.warn("Error parsing SSE event payload:", pe);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Streaming error in client:", err);
+    onError && onError(err);
+  }
+}
+
+

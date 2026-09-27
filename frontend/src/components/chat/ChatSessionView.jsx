@@ -5,7 +5,7 @@ import ChatInput from "./ChatInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
-import { sendSessionMessage } from "@/services/api";
+import { sendSessionMessage, streamSessionMessage } from "@/services/api";
 import { LumenOrbSphere } from "../LumenOrb";
 
 export default function ChatSessionView({
@@ -58,8 +58,19 @@ export default function ChatSessionView({
       content: textToSend
     };
 
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+    const assistantMessageId = `a-${Date.now()}`;
+    const initialAssistantMsg = {
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      isStreaming: true,
+      toolStatus: null,
+      tool_executions: [],
+      widgets: [],
+      engine: "backboard"
+    };
+
+    setMessages((prev) => [...prev, userMsg, initialAssistantMsg]);
     setInput("");
     setIsLoading(true);
 
@@ -67,49 +78,129 @@ export default function ChatSessionView({
       const threadId = session.thread_id || session.id;
       const courseContext = track ? `${track.code} ${track.name}` : cleanTitle;
 
-      const replyData = await sendSessionMessage(threadId, textToSend, courseContext);
-
-      const assistantMsg = {
-        id: `a-${Date.now()}`,
-        role: "assistant",
-        content: replyData.content || "I have analyzed your query.",
-        tool_executions: replyData.tool_executions || [],
-        widgets: replyData.widgets || [],
-        engine: replyData.engine || "backboard"
-      };
-
-      // Persist Backboard thread_id onto session so future turns stay on this thread
-      if (replyData.thread_id) {
-        session.thread_id = replyData.thread_id;
-      }
-
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      // If any widget was generated, sync it to the workspace widgets list
-      if (replyData.widgets && replyData.widgets.length > 0 && onAddWidget) {
-        replyData.widgets.forEach((w) => {
-          onAddWidget({
-            id: w.id,
-            title: w.title,
-            desc: w.explanation || w.concept,
-            trackId: session.trackId,
-            trackCode: track?.code || "CMSC",
-            trackTag: track?.tagColor || "blue",
-            engine: "Interactive HTML"
-          });
-        });
-      }
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `err-${Date.now()}`,
-          role: "assistant",
-          content: "Sorry, I ran into an error connecting to the server. Please check that the backend is running.",
-          tool_executions: [],
-          widgets: []
+      await streamSessionMessage({
+        threadId,
+        message: textToSend,
+        courseContext,
+        onMeta: ({ thread_id, engine }) => {
+          if (thread_id) {
+            session.thread_id = thread_id;
+          }
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId ? { ...m, engine: engine || "backboard" } : m
+            )
+          );
+        },
+        onToolStart: ({ status }) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId ? { ...m, toolStatus: status } : m
+            )
+          );
+        },
+        onToolResult: ({ execution }) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    toolStatus: null,
+                    tool_executions: [...(m.tool_executions || []), execution]
+                  }
+                : m
+            )
+          );
+        },
+        onWidget: (widget) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    toolStatus: null,
+                    widgets: [...(m.widgets || []), widget]
+                  }
+                : m
+            )
+          );
+          if (onAddWidget) {
+            onAddWidget({
+              id: widget.id,
+              title: widget.title,
+              desc: widget.explanation || widget.concept,
+              trackId: session.trackId,
+              trackCode: track?.code || "CMSC",
+              trackTag: track?.tagColor || "blue",
+              engine: "Interactive HTML"
+            });
+          }
+        },
+        onDelta: (delta) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    toolStatus: null,
+                    content: (m.content || "") + delta
+                  }
+                : m
+            )
+          );
+        },
+        onDone: (doneEvt) => {
+          if (doneEvt.thread_id) {
+            session.thread_id = doneEvt.thread_id;
+          }
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    isStreaming: false,
+                    toolStatus: null,
+                    content: doneEvt.content || m.content,
+                    tool_executions: doneEvt.tool_executions || m.tool_executions,
+                    widgets: doneEvt.widgets || m.widgets
+                  }
+                : m
+            )
+          );
+        },
+        onError: (err) => {
+          console.error("Stream handling error:", err);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    isStreaming: false,
+                    toolStatus: null,
+                    content:
+                      m.content ||
+                      "Sorry, I ran into an error connecting to the server. Please check that the backend is running."
+                  }
+                : m
+            )
+          );
         }
-      ]);
+      });
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMessageId
+            ? {
+                ...m,
+                isStreaming: false,
+                toolStatus: null,
+                content:
+                  m.content ||
+                  "Sorry, I ran into an error connecting to the server. Please check that the backend is running."
+              }
+            : m
+        )
+      );
     } finally {
       setIsLoading(false);
     }

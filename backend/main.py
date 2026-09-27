@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -11,7 +12,7 @@ from services.manim_service import render_or_get_manim_clip
 from services.voice_service import generate_voice_narration
 from services.career_service import get_course_career_roi
 from services.memory_service import get_student_session_context, record_student_interaction
-from services.backboard_service import create_backboard_session, send_chat_message
+from services.backboard_service import create_backboard_session, send_chat_message, stream_chat_message
 from services.sqlite_service import execute_campus_sql, get_database_schema_summary
 
 app = FastAPI(
@@ -503,6 +504,22 @@ async def send_message_to_session(req: SessionMessageRequest):
         course_context=req.course_context
     )
     return result
+
+
+@app.post("/api/sessions/stream")
+async def stream_message_to_session(req: SessionMessageRequest):
+    """
+    Streams an assistant response token-by-token (SSE) while handling Backboard session persistence,
+    SQL queries against campus.db, and interactive widget generation.
+    """
+    return StreamingResponse(
+        stream_chat_message(
+            thread_id=req.thread_id,
+            message=req.message,
+            course_context=req.course_context
+        ),
+        media_type="text/event-stream"
+    )
 
 
 @app.get("/api/database/schema")

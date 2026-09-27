@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, AsyncIterator
 from config import BACKBOARD_API_KEY, GEMINI_API_KEY
 from services.sqlite_service import execute_campus_sql, get_database_schema_summary
 
@@ -511,3 +511,236 @@ Provide a concise, well-formatted Markdown answer synthesizing these results cle
             "widgets": [],
             "status": "error"
         }
+
+
+async def _stream_with_gemini_models(client, prompt: str) -> AsyncIterator[str]:
+    """
+    Attempts streaming with primary model gemini-3.8-flash,
+    falling back to gemini-3.5-flash or gemini-2.5-flash if 503 or transient errors occur.
+    """
+    candidate_models = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"]
+    last_err = None
+    for model_name in candidate_models:
+        for attempt in range(2):
+            try:
+                response = await client.aio.models.generate_content_stream(
+                    model=model_name,
+                    contents=prompt
+                )
+                async for chunk in response:
+                    if chunk and chunk.text:
+                        yield chunk.text
+                return
+            except Exception as e:
+                last_err = e
+                err_str = str(e).lower()
+                if "503" in err_str or "unavailable" in err_str or "demand" in err_str:
+                    await asyncio.sleep(1)
+                    continue
+                break
+    if last_err:
+        raise last_err
+
+
+async def stream_chat_message(
+    thread_id: str,
+    message: str,
+    course_context: Optional[str] = None
+) -> AsyncIterator[str]:
+    """
+    Streams an assistant response token-by-token using SSE (Server-Sent Events) format.
+    Handles Backboard session logging, dynamic SQLite queries against campus.db,
+    and widget generation with real-time token streaming.
+    """
+    valid_thread_id = None
+    assistant_id = None
+    bb_client = None
+
+    if BACKBOARD_API_KEY:
+        try:
+            from backboard import BackboardClient
+            bb_client = BackboardClient(api_key=BACKBOARD_API_KEY)
+            assistant_id = await get_or_create_assistant(bb_client)
+            if _is_valid_uuid(thread_id):
+                valid_thread_id = str(thread_id)
+            elif thread_id in _session_thread_map:
+                valid_thread_id = _session_thread_map[thread_id]
+            else:
+                new_thread = await bb_client.create_thread(assistant_id=assistant_id if assistant_id else None)
+                valid_thread_id = str(new_thread.thread_id)
+                _session_thread_map[thread_id] = valid_thread_id
+        except Exception as e:
+            logger.warning(f"Backboard init in stream error: {e}")
+
+    # Emit initial metadata
+    current_thread_id = valid_thread_id or thread_id
+    yield f"data: {json.dumps({'type': 'meta', 'thread_id': current_thread_id, 'engine': 'backboard' if BACKBOARD_API_KEY else 'gemini_direct'})}\n\n"
+
+    tool_executions: List[Dict[str, Any]] = []
+    widgets: List[Dict[str, Any]] = []
+    full_content = ""
+
+    lower_msg = message.lower()
+    needs_db = any(kw in lower_msg for kw in [
+        "salary", "salaries", "prereq", "prerequisite", "catalog", "course", 
+        "difficulty", "gpa", "alumni", "grade", "standing", "employment", "career",
+        "job", "offer", "internship", "transcript", "enrollment"
+    ])
+
+    needs_widget = any(kw in lower_msg for kw in [
+        "widget", "visual", "interactive", "diagram", "simulation", "simulate",
+        "compare", "animation", "visualize", "draw"
+    ])
+
+    if not GEMINI_API_KEY:
+        err = "Please configure your GEMINI_API_KEY or BACKBOARD_API_KEY in backend/.env to start chatting."
+        yield f"data: {json.dumps({'type': 'delta', 'delta': err})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'thread_id': current_thread_id, 'content': err, 'tool_executions': [], 'widgets': []})}\n\n"
+        return
+
+    from google import genai
+    client = genai.Client(api_key=GEMINI_API_KEY)
+
+    try:
+        # Scenario 1: Campus database query needed
+        if needs_db:
+            yield f"data: {json.dumps({'type': 'tool_start', 'tool': 'query_campus_database', 'status': 'Querying UMBC campus dataset...'})}\n\n"
+
+            db_prompt = f"""You are Lumen. Given this student query: "{message}" (Course context: {course_context or 'None'})
+Generate a valid SQLite query for campus.db. Schema:
+{get_database_schema_summary()}
+
+Return ONLY a JSON query object:
+```json_query
+{{"query": "SELECT ...", "rationale": "..."}}
+```
+"""
+            res_text = await _generate_with_gemini_models(client, db_prompt)
+            import re
+            query_match = re.search(r'```json_query\s*(\{.*?\})\s*```', res_text, re.DOTALL)
+            sql_res = None
+            if query_match:
+                try:
+                    q_data = json.loads(query_match.group(1))
+                    sql = q_data.get("query", "")
+                    if sql:
+                        sql_res = execute_campus_sql(sql)
+                        tool_info = {
+                            "tool": "query_campus_database",
+                            "query": sql,
+                            "rationale": q_data.get("rationale", ""),
+                            "columns": sql_res.get("columns", []),
+                            "rows": sql_res.get("rows", []),
+                            "row_count": sql_res.get("row_count", 0),
+                            "success": sql_res.get("success", False),
+                            "error": sql_res.get("error")
+                        }
+                        tool_executions.append(tool_info)
+                        yield f"data: {json.dumps({'type': 'tool_result', 'tool': 'query_campus_database', 'execution': tool_info})}\n\n"
+                except Exception as qe:
+                    logger.warning(f"Error parsing query in stream: {qe}")
+
+            # Now stream synthesized response with database rows
+            rows_preview = json.dumps(sql_res.get("rows", [])[:12] if sql_res else [], indent=2)
+            synthesis_prompt = f"""{LUMEN_SYSTEM_PROMPT}
+
+Student Query:
+{f'[Course: {course_context}] ' if course_context else ''}{message}
+
+Database query executed: {tool_executions[0]['query'] if tool_executions else 'None'}
+Query results:
+{rows_preview}
+
+Provide a clear, supportive, and well-formatted Markdown answer synthesizing the findings."""
+
+            async for delta in _stream_with_gemini_models(client, synthesis_prompt):
+                full_content += delta
+                yield f"data: {json.dumps({'type': 'delta', 'delta': delta})}\n\n"
+
+        # Scenario 2: Visual widget requested
+        elif needs_widget:
+            yield f"data: {json.dumps({'type': 'tool_start', 'tool': 'build_interactive_widget', 'status': 'Generating interactive visualization...'})}\n\n"
+
+            widget_prompt = f"""{LUMEN_SYSTEM_PROMPT}
+
+Student Query:
+{f'[Course: {course_context}] ' if course_context else ''}{message}
+
+Generate an interactive HTML/JS dark-theme widget for this concept.
+Return JSON:
+```json_widget
+{{"title": "...", "concept": "...", "explanation": "...", "html_code": "..."}}
+```
+"""
+            widget_text = await _generate_with_gemini_models(client, widget_prompt)
+            import re
+            widget_match = re.search(r'```json_widget\s*(\{.*?\})\s*```', widget_text, re.DOTALL)
+            if widget_match:
+                try:
+                    w_data = json.loads(widget_match.group(1))
+                    widget_obj = {
+                        "id": f"w-{uuid.uuid4().hex[:8]}",
+                        "title": w_data.get("title", "Interactive Visual"),
+                        "concept": w_data.get("concept", course_context or "Concept"),
+                        "html_code": w_data.get("html_code", "<p>Interactive widget</p>"),
+                        "explanation": w_data.get("explanation", ""),
+                        "thread_id": current_thread_id
+                    }
+                    widgets.append(widget_obj)
+                    yield f"data: {json.dumps({'type': 'widget', 'widget': widget_obj})}\n\n"
+                except Exception as we:
+                    logger.warning(f"Error parsing widget in stream: {we}")
+
+            # Stream accompanying explanation
+            explanation_prompt = f"""You are Lumen. The student asked: "{message}"
+We have generated an interactive widget titled "{widgets[0]['title'] if widgets else 'Visual'}".
+Provide a concise 2-paragraph Markdown explanation of how this concept works and key principles to note."""
+            async for delta in _stream_with_gemini_models(client, explanation_prompt):
+                full_content += delta
+                yield f"data: {json.dumps({'type': 'delta', 'delta': delta})}\n\n"
+
+        # Scenario 3: General conversational explanation
+        else:
+            prompt = f"""{LUMEN_SYSTEM_PROMPT}
+
+Student Query:
+{f'[Course: {course_context}] ' if course_context else ''}{message}
+
+Provide a thorough, intuitive, and well-structured Markdown explanation with clear examples."""
+            async for delta in _stream_with_gemini_models(client, prompt):
+                full_content += delta
+                yield f"data: {json.dumps({'type': 'delta', 'delta': delta})}\n\n"
+
+    except Exception as e:
+        logger.error(f"Streaming error: {e}", exc_info=True)
+        err_msg = f"\n\n*(Error generating streaming response: {e})*"
+        full_content += err_msg
+        yield f"data: {json.dumps({'type': 'delta', 'delta': err_msg})}\n\n"
+
+    # Async Backboard sync in background
+    if bb_client and valid_thread_id:
+        try:
+            await bb_client.add_message(
+                thread_id=valid_thread_id,
+                content=message,
+                send_to_llm="false"
+            )
+            if full_content:
+                await bb_client.add_message(
+                    thread_id=valid_thread_id,
+                    content=full_content[:2000],
+                    send_to_llm="false"
+                )
+            if assistant_id:
+                summary_topic = course_context or "STEM Study"
+                await bb_client.add_memory(
+                    assistant_id=assistant_id,
+                    content=f"Student queried {summary_topic}: {message[:100]}"
+                )
+            await bb_client.aclose()
+        except Exception as sync_err:
+            logger.debug(f"Stream Backboard sync failed: {sync_err}")
+
+    # Emit final completion event
+    yield f"data: {json.dumps({'type': 'done', 'thread_id': current_thread_id, 'content': full_content, 'tool_executions': tool_executions, 'widgets': widgets})}\n\n"
+
