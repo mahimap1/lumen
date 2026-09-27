@@ -36,13 +36,13 @@ export default function App() {
 
   const [widgets, setWidgets] = useState(() => {
     try {
-      const saved = localStorage.getItem("lumen_widgets_v2");
+      const saved = localStorage.getItem("lumen_widgets_v3");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {}
-    return INITIAL_WIDGETS;
+    return []; // Start empty — only Lumen-generated widgets are saved here
   });
 
   // Persist state changes to localStorage
@@ -60,7 +60,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem("lumen_widgets_v2", JSON.stringify(widgets));
+      localStorage.setItem("lumen_widgets_v3", JSON.stringify(widgets));
     } catch (e) {}
   }, [widgets]);
 

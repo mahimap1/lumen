@@ -83,10 +83,15 @@ export default function ChatSessionView({
             id: w.id,
             title: w.title,
             desc: w.explanation || w.concept,
+            topic: w.concept,
+            html: w.html_code || w.html || "",       // full HTML for sandbox rendering
+            html_code: w.html_code || w.html || "",  // alias used by WidgetSandboxModal
             trackId: session.trackId,
             trackCode: track?.code || "CMSC",
             trackTag: track?.tagColor || "blue",
-            engine: "Interactive HTML"
+            trackType: track?.type || "course",
+            engine: "Interactive HTML/CSS/JS",
+            createdAt: Date.now()
           });
         });
       }
