@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { INITIAL_WIDGETS } from "../data/initialData";
+import WidgetSandboxModal from "./WidgetSandboxModal";
 
 export default function VisualArchive({ widgets = INITIAL_WIDGETS, onOpenVisualizer }) {
   const [selectedType, setSelectedType] = useState("all"); // "all" | "course" | "credential" | "skill"
   const [selectedTrack, setSelectedTrack] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sandboxWidget, setSandboxWidget] = useState(null); // widget object to show in sandbox
 
   // Extract unique track codes from available widgets
   const trackCodes = Array.from(new Set(widgets.map((w) => w.trackCode))).filter(Boolean);
@@ -140,7 +142,7 @@ export default function VisualArchive({ widgets = INITIAL_WIDGETS, onOpenVisuali
           <div
             key={item.id}
             className="gallery-card"
-            onClick={() => onOpenVisualizer(item.title, item.trackCode || item.course)}
+            onClick={() => setSandboxWidget(item)}
           >
             {/* Visual Thumbnail */}
             <div className="gallery-preview">
@@ -229,6 +231,13 @@ export default function VisualArchive({ widgets = INITIAL_WIDGETS, onOpenVisuali
           No widgets found matching your filter criteria.
         </div>
       )}
+
+      {/* Clean sandbox modal — renders the widget's HTML/CSS/JS directly */}
+      <WidgetSandboxModal
+        isOpen={!!sandboxWidget}
+        widget={sandboxWidget}
+        onClose={() => setSandboxWidget(null)}
+      />
     </div>
   );
 }

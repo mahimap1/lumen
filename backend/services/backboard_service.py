@@ -368,9 +368,9 @@ async def send_chat_message(
 async def _generate_with_gemini_models(client, prompt: str) -> str:
     """
     Attempts generation with primary model gemini-3.8-flash,
-    falling back to gemini-3.5-flash or gemini-2.5-flash if 503 or transient errors occur.
+    falling back to gemini-3.5-flash or gemini-3.5-flash-lite if rate limits or transient errors occur.
     """
-    candidate_models = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"]
+    candidate_models = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
     last_err = None
     for model_name in candidate_models:
         for attempt in range(2):
@@ -388,6 +388,9 @@ async def _generate_with_gemini_models(client, prompt: str) -> str:
                 if "503" in err_str or "unavailable" in err_str or "demand" in err_str:
                     await asyncio.sleep(1)
                     continue
+                # If rate-limited or model unavailable/not found, immediately try next candidate model
+                if "429" in err_str or "quota" in err_str or "404" in err_str:
+                    break
                 break
     if last_err:
         raise last_err

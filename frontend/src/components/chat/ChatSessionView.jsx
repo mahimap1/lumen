@@ -25,32 +25,10 @@ export default function ChatSessionView({
     .replace(/^[\p{Emoji}\u2000-\u3300\s]+/gu, "")
     .trim() || session?.title || "Study Session";
 
-  // Initialize or restore session messages
+  // Restore session messages (no auto-greeting — start fresh)
   useEffect(() => {
     if (!session) return;
-    if (session.messages && session.messages.length > 0) {
-      setMessages(session.messages);
-    } else {
-      // Clean welcoming prompt tailored to this session / track
-      const initialGreeting = session.description
-        ? `Welcome to your study session on **${cleanTitle}**!\n\nI have access to the UMBC campus dataset and can query course requirements, analyze alumni salaries, or generate interactive widgets for you. How can I help you today?`
-        : `Hello! I'm Lumen, your academic copilot for **${cleanTitle}**.\n\nAsk me any question about course concepts, prerequisites, or alumni career outcomes.`;
-
-      const initialMsgs = [
-        {
-          id: `init-${session.id}`,
-          role: "assistant",
-          content: initialGreeting,
-          engine: "backboard",
-          tool_executions: [],
-          widgets: []
-        }
-      ];
-      setMessages(initialMsgs);
-      if (onUpdateSession) {
-        onUpdateSession(session.id, { messages: initialMsgs });
-      }
-    }
+    setMessages(session.messages && session.messages.length > 0 ? session.messages : []);
   }, [session?.id]);
 
   const handleSend = async (overrideText = null) => {
@@ -278,6 +256,16 @@ export default function ChatSessionView({
 
           {/* Messages Column */}
           <div className="flex-1 min-w-0 space-y-6">
+            {/* Empty state — fresh session */}
+            {messages.length === 0 && !isLoading && (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center animate-in fade-in duration-500">
+                <p className="text-zinc-300 text-lg font-semibold">What would you like to explore?</p>
+                <p className="text-zinc-500 text-sm max-w-xs">
+                  Ask me about courses, prerequisites, career outcomes, or anything else on your mind.
+                </p>
+              </div>
+            )}
+
             {messages.map((m) => (
               <ChatMessage
                 key={m.id}
