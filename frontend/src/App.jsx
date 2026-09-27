@@ -5,6 +5,7 @@ import SessionView from "./components/SessionView";
 import VisualArchive from "./components/VisualArchive";
 import VisualizerModal from "./components/VisualizerModal";
 import LumenPanel from "./components/LumenPanel";
+import CareerDashboard from "./components/CareerDashboard";
 import { INITIAL_COURSES, INITIAL_SESSIONS } from "./data/initialData";
 
 const LUMEN_PANEL_WIDTH = 300;
@@ -78,6 +79,7 @@ export default function App() {
             <span style={{ fontWeight: 600, color: "var(--text-main)" }}>✨ Lumen</span>
             <span>/</span>
             {activeView === "home" && <span>Home</span>}
+            {activeView === "career" && <span>Career Pathways & Degree ROI</span>}
             {activeView === "session" && (
               <>
                 <span onClick={() => handleNavigate("home")} style={{ cursor: "pointer" }}>
@@ -120,6 +122,10 @@ export default function App() {
               onStartSession={() => handleSelectSession(sessions[0]?.id || "session-1")}
               onOpenWidgets={() => setActiveView("widgets")}
             />
+          )}
+
+          {activeView === "career" && (
+            <CareerDashboard />
           )}
 
           {activeView === "session" && (

@@ -28,6 +28,8 @@ wheels/
 backend/.venv/
 backend/.env
 backend/static/*.mp4
+*.db
+backend/data/*.db
 
 # Node & Frontend
 node_modules/

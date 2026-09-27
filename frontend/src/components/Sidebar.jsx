@@ -93,6 +93,41 @@ export default function Sidebar({
             </div>
           );
         })}
+
+        {/* Career Section under Sessions */}
+        <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-color)" }}>
+          <div className="sidebar-heading" style={{ marginBottom: "6px" }}>
+            <span>CAREER COACH</span>
+            <span
+              style={{
+                fontSize: "10px",
+                padding: "2px 5px",
+                borderRadius: "4px",
+                background: "rgba(59, 130, 246, 0.15)",
+                color: "#3b82f6",
+                fontWeight: 600
+              }}
+            >
+              DoIT
+            </span>
+          </div>
+
+          <div
+            className={`nav-row ${activeView === "career" ? "active" : ""}`}
+            onClick={() => onNavigate("career")}
+          >
+            <div className="nav-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                <line x1="12" y1="11" x2="12" y2="17"></line>
+                <line x1="9" y1="14" x2="15" y2="14"></line>
+              </svg>
+            </div>
+            <span className="nav-title" style={{ fontWeight: activeView === "career" ? 600 : 400 }}>
+              Pathways & ROI
+            </span>
+          </div>
+        </div>
       </div>
     </aside>
   );

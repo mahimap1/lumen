@@ -139,6 +139,308 @@ def consult_lumen(req: NoteConsultRequest):
     }
 
 
+from services.career_db import query_db, query_db_one, init_campus_db
+
+# Ensure campus database is loaded
+try:
+    init_campus_db()
+except Exception as e:
+    print(f"[CareerDB] Auto-init error: {e}")
+
+
+@app.get("/api/career/dashboard")
+def get_career_dashboard():
+    """
+    Returns aggregated metrics from the 6 synthetic campus & alumni tables.
+    """
+    try:
+        summary = {
+            "total_alumni": query_db_one("SELECT count(*) as count FROM alumni")["count"],
+            "total_students": query_db_one("SELECT count(*) as count FROM students_current")["count"],
+            "total_records": query_db_one("SELECT count(*) as count FROM employment_history")["count"],
+            "avg_first_salary": query_db_one("SELECT round(avg(cast(annual_salary_usd as int)), 0) as avg FROM employment_history WHERE change_type = 'First Job'")["avg"],
+            "avg_clearance_salary": query_db_one("SELECT round(avg(cast(annual_salary_usd as int)), 0) as avg FROM employment_history WHERE requires_clearance = 'TRUE'")["avg"],
+        }
+
+        # Major breakdown
+        majors = query_db("""
+            SELECT 
+                a.major, 
+                count(distinct a.campus_id) as alumni_count,
+                round(avg(cast(e.annual_salary_usd as int)), 0) as avg_first_salary,
+                round(avg(cast(a.net_cost_usd as int)), 0) as avg_net_cost,
+                round(avg(cast(a.months_to_first_job as float)), 1) as avg_months_to_job
+            FROM alumni a
+            LEFT JOIN employment_history e ON a.campus_id = e.campus_id AND e.change_type = 'First Job'
+            GROUP BY a.major
+        """)
+
+        # Internship impact on starting salary & job search speed
+        internship_impact = query_db("""
+            SELECT 
+                CASE 
+                    WHEN cast(a.internship_count as int) >= 2 THEN '2+ Internships' 
+                    WHEN cast(a.internship_count as int) = 1 THEN '1 Internship' 
+                    ELSE '0 Internships' 
+                END as intern_tier,
+                count(distinct a.campus_id) as alumni_count,
+                round(avg(cast(e.annual_salary_usd as int)), 0) as avg_starting_salary,
+                round(avg(cast(a.months_to_first_job as float)), 1) as avg_months_to_job
+            FROM alumni a 
+            JOIN employment_history e ON a.campus_id = e.campus_id 
+            WHERE e.change_type = 'First Job'
+            GROUP BY intern_tier
+            ORDER BY avg_starting_salary ASC
+        """)
+
+        # Top 6 employers hiring UMBC graduates
+        top_employers = query_db("""
+            SELECT 
+                employer, 
+                employer_industry,
+                count(*) as hires,
+                round(avg(cast(annual_salary_usd as int)), 0) as avg_salary
+            FROM employment_history
+            WHERE change_type = 'First Job'
+            GROUP BY employer
+            ORDER BY hires DESC
+            LIMIT 6
+        """)
+
+        # Top job titles and their median salaries
+        top_roles = query_db("""
+            SELECT 
+                job_title, 
+                count(*) as count,
+                round(avg(cast(annual_salary_usd as int)), 0) as avg_salary
+            FROM employment_history
+            WHERE change_type = 'First Job'
+            GROUP BY job_title
+            ORDER BY count DESC
+            LIMIT 6
+        """)
+
+        return {
+            "status": "success",
+            "summary": summary,
+            "majors": majors,
+            "internship_impact": internship_impact,
+            "top_employers": top_employers,
+            "top_roles": top_roles
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/career/pathways")
+def get_career_pathways():
+    """
+    Returns career progression stages (Entry -> Mid -> Senior -> Lead/Manager)
+    and Track-to-Role salary benchmarks.
+    """
+    try:
+        seniority_ladder = query_db("""
+            SELECT 
+                seniority_level, 
+                count(*) as total_spells, 
+                round(avg(cast(annual_salary_usd as int)), 0) as avg_salary,
+                round(avg(cast(tenure_months as int)), 0) as avg_tenure_months
+            FROM employment_history 
+            GROUP BY seniority_level 
+            ORDER BY avg_salary ASC
+        """)
+
+        track_stats = query_db("""
+            SELECT 
+                a.major, 
+                a.track, 
+                count(distinct a.campus_id) as alumni_count, 
+                round(avg(cast(e.annual_salary_usd as int)), 0) as avg_starting_salary,
+                round(avg(cast(a.final_gpa as float)), 2) as avg_gpa
+            FROM alumni a 
+            JOIN employment_history e ON a.campus_id = e.campus_id 
+            WHERE e.change_type = 'First Job' 
+            GROUP BY a.major, a.track
+            ORDER BY avg_starting_salary DESC
+        """)
+
+        clearance_advantage = query_db("""
+            SELECT 
+                requires_clearance, 
+                count(*) as count, 
+                round(avg(cast(annual_salary_usd as int)), 0) as avg_salary 
+            FROM employment_history 
+            WHERE change_type = 'First Job' 
+            GROUP BY requires_clearance
+        """)
+
+        return {
+            "status": "success",
+            "seniority_ladder": seniority_ladder,
+            "track_stats": track_stats,
+            "clearance_advantage": clearance_advantage
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/career/course-catalog-skills")
+def get_course_catalog_skills():
+    """
+    Returns courses with their associated skill tags, credits, and difficulty index.
+    """
+    try:
+        courses = query_db("""
+            SELECT course_id, subject, catalog_number, course_title, credits, course_level, course_type, skill_tags, difficulty_index
+            FROM course_catalog
+            ORDER BY subject, catalog_number
+        """)
+        return {"status": "success", "courses": courses}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/career/alumni-twins")
+def get_alumni_twins(major: str = "Computer Science", track: str = "General", min_internships: int = 1):
+    """
+    Finds real alumni digital twins with similar starting backgrounds and shows their full journey.
+    """
+    try:
+        alumni_records = query_db("""
+            SELECT 
+                a.campus_id, a.major, a.track, a.degree_level, a.final_gpa, a.internship_count, 
+                a.net_cost_usd, a.months_to_first_job,
+                e.job_title, e.employer, e.annual_salary_usd, e.seniority_level, e.is_remote, e.requires_clearance
+            FROM alumni a
+            JOIN employment_history e ON a.campus_id = e.campus_id
+            WHERE a.major = ? AND a.track = ? AND cast(a.internship_count as int) >= ? AND e.change_type = 'First Job'
+            ORDER BY cast(e.annual_salary_usd as int) DESC
+            LIMIT 6
+        """, (major, track, min_internships))
+
+        return {"status": "success", "twins": alumni_records}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/career/candidate-list")
+def get_candidate_list():
+    """
+    Returns a curated set of alumni candidates across different tracks, GPAs, and job roles
+    for interactive profile graphing.
+    """
+    try:
+        candidates = query_db("""
+            SELECT 
+                a.campus_id, a.major, a.track, a.degree_level, a.final_gpa, 
+                a.internship_count, a.credential_count,
+                emp.job_title, emp.employer, emp.annual_salary_usd
+            FROM alumni a
+            JOIN employment_history emp ON a.campus_id = emp.campus_id AND emp.change_type = 'First Job'
+            WHERE cast(a.internship_count as int) >= 1
+            ORDER BY cast(emp.annual_salary_usd as int) DESC
+            LIMIT 15
+        """)
+        return {"status": "success", "candidates": candidates}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/career/candidate-profile/{campus_id}")
+def get_candidate_profile(campus_id: str):
+    """
+    Fetches the complete chronological profile (courses with prerequisite graph,
+    internships, hackathons, certifications/microcredentials, and post-grad jobs)
+    for a specific alumnus.
+    """
+    try:
+        # 1. Alumnus details
+        alumnus = query_db_one("SELECT * FROM alumni WHERE campus_id = ?", (campus_id,))
+        if not alumnus:
+            return {"status": "error", "message": f"Candidate {campus_id} not found"}
+
+        # 2. Employment history (spells)
+        employment = query_db("""
+            SELECT * FROM employment_history 
+            WHERE campus_id = ? 
+            ORDER BY start_date ASC
+        """, (campus_id,))
+
+        # 3. Experiences & Micro-credentials (internships, research, certs, hackathons)
+        experiences = query_db("""
+            SELECT * FROM student_experience 
+            WHERE campus_id = ? 
+            ORDER BY term ASC
+        """, (campus_id,))
+
+        # 4. Transcripts with course catalog metadata and prerequisites
+        transcripts = query_db("""
+            SELECT 
+                t.term, t.course_id, t.course_title, t.grade, t.requirement_category,
+                c.prerequisite_ids, c.skill_tags, c.course_level, c.course_type, c.difficulty_index
+            FROM transcripts t
+            LEFT JOIN course_catalog c ON t.course_id = c.course_id
+            WHERE t.campus_id = ?
+            ORDER BY t.term ASC, t.course_id ASC
+        """, (campus_id,))
+
+        # Chronological term ordering helper
+        def term_sort_key(term_str):
+            parts = term_str.split()
+            if len(parts) == 2:
+                season, year = parts[0], parts[1]
+                season_order = {"Winter": 0, "Spring": 1, "Summer": 2, "Fall": 3}
+                try:
+                    return int(year) * 10 + season_order.get(season, 0)
+                except ValueError:
+                    return 0
+            return 0
+
+        # Group items by semester term
+        terms_dict = {}
+        for row in transcripts:
+            t = row["term"]
+            if t not in terms_dict:
+                terms_dict[t] = {"term": t, "courses": [], "experiences": []}
+            terms_dict[t]["courses"].append(row)
+
+        for row in experiences:
+            t = row["term"]
+            if t not in terms_dict:
+                terms_dict[t] = {"term": t, "courses": [], "experiences": []}
+            terms_dict[t]["experiences"].append(row)
+
+        sorted_timeline = sorted(terms_dict.values(), key=lambda x: term_sort_key(x["term"]))
+
+        # Build prerequisite edges
+        candidate_courses = {row["course_id"]: row for row in transcripts}
+        prereq_edges = []
+        for c_id, c_data in candidate_courses.items():
+            prereqs = c_data.get("prerequisite_ids")
+            if prereqs and prereqs != "Not Applicable":
+                for p in prereqs.split("|"):
+                    p_clean = p.strip()
+                    if p_clean in candidate_courses:
+                        prereq_edges.append({
+                            "from": p_clean,
+                            "to": c_id,
+                            "from_term": candidate_courses[p_clean]["term"],
+                            "to_term": c_data["term"]
+                        })
+
+        return {
+            "status": "success",
+            "alumnus": alumnus,
+            "employment": employment,
+            "timeline": sorted_timeline,
+            "prereq_edges": prereq_edges
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+
+
 @app.get("/api/career/roi/{course_id}")
 def get_career_roi(course_id: str):
     """
@@ -150,6 +452,7 @@ def get_career_roi(course_id: str):
         "course_id": course_id,
         "data": roi_data
     }
+
 
 
 @app.get("/api/memory/context")
