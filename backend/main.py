@@ -11,7 +11,6 @@ from services.manim_service import render_or_get_manim_clip
 from services.voice_service import generate_voice_narration
 from services.career_service import get_course_career_roi
 from services.memory_service import get_student_session_context, record_student_interaction
-from services.chat_service import process_chat_message
 from services.backboard_service import create_backboard_session, send_chat_message
 from services.sqlite_service import execute_campus_sql, get_database_schema_summary
 
@@ -47,12 +46,6 @@ class NoteConsultRequest(BaseModel):
 
 class VoiceNarrateRequest(BaseModel):
     text: str
-
-
-class ChatRequest(BaseModel):
-    message: str
-    courses: Optional[list] = []
-    history: Optional[list] = []
 
 
 @app.get("/api/health")
@@ -467,20 +460,6 @@ def get_memory_context(student_id: str = "alex_umbc"):
         "status": "success",
         "student_id": student_id,
         "context": context
-    }
-
-
-@app.post("/api/chat")
-def chat_with_lumen(req: ChatRequest):
-    """
-    Interactive AI assistant endpoint using Gemini 3.5 Flash Lite to answer queries
-    and execute student actions (deadlines, todos, study sessions, visualizers).
-    """
-    result = process_chat_message(req.message, req.courses, req.history)
-    return {
-        "status": "success",
-        "reply": result.get("reply", ""),
-        "action": result.get("action")
     }
 
 

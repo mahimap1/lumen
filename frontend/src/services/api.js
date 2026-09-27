@@ -281,53 +281,6 @@ export async function getCareerRoi(courseId) {
   };
 }
 
-export async function sendChatMessage(message, courses, history = []) {
-  try {
-    const formattedCourses = Object.values(courses || {}).map((c) => ({
-      id: c.id,
-      code: c.code,
-      title: c.title,
-      deadlines: (c.deadlines || []).map((d) => d.title),
-      todos: (c.todos || []).map((t) => t.text)
-    }));
-
-    const res = await fetch(`${API_BASE_URL}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, courses: formattedCourses, history })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return data;
-    }
-  } catch (err) {
-    console.warn("Backend chat unavailable, using local fallback:", err);
-  }
-
-  // Local fallback heuristic
-  const msg = message.toLowerCase();
-  if (msg.includes("deadline")) {
-    return {
-      status: "success",
-      reply: "Added deadline to your calendar.",
-      action: {
-        type: "ADD_DEADLINE",
-        course_id: "cmsc341",
-        title: "Assignment Deliverable",
-        date: "Upcoming",
-        due: "In 7 days",
-        sub: "Online Portal"
-      }
-    };
-  }
-
-  return {
-    status: "success",
-    reply: "I am ready to help you navigate courses, organize deadlines, and visualize complex invariants.",
-    action: null
-  };
-}
-
 export async function createSession(title = "New Study Session", courseContext = null) {
   try {
     const res = await fetch(`${API_BASE_URL}/sessions/create`, {
