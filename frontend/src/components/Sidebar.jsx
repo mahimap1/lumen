@@ -8,7 +8,8 @@ export default function Sidebar({
   selectedSessionId,
   onNavigate,
   onOpenNewSessionModal,
-  onSelectSession
+  onSelectSession,
+  onResetDemo
 }) {
   // Keep track of collapsed/expanded tracks (default all expanded)
   const [collapsedTracks, setCollapsedTracks] = useState({});
@@ -238,6 +239,41 @@ export default function Sidebar({
           </div>
         </div>
       </div>
+
+      {/* Bottom Demo Controls */}
+      {onResetDemo && (
+        <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.15)" }}>
+          <button
+            onClick={() => {
+              if (window.confirm("Reset demo data and restore pristine judge conversations?")) {
+                onResetDemo();
+              }
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--text-tertiary)",
+              fontSize: "11px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "3px 6px",
+              borderRadius: "4px",
+              transition: "color 0.2s"
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-main)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
+            title="Reset demo conversations, widgets, and pathways"
+          >
+            <span style={{ fontSize: "12px" }}>↺</span>
+            <span>Reset Demo State</span>
+          </button>
+          <span style={{ fontSize: "10px", color: "var(--text-tertiary)", fontFamily: "monospace" }}>
+            Lumen AI
+          </span>
+        </div>
+      )}
     </aside>
   );
 }

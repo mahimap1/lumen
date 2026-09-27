@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import FourYearPlanView from "./components/FourYearPlanView";
 import AlumniPathwaysView from "./components/AlumniPathwaysView";
@@ -12,9 +12,57 @@ import { createSession as createBackboardSession } from "./services/api";
 import { INITIAL_TRACKS, INITIAL_SESSIONS, INITIAL_WIDGETS } from "./data/initialData";
 
 export default function App() {
-  const [tracks, setTracks] = useState(INITIAL_TRACKS);
-  const [sessions, setSessions] = useState(INITIAL_SESSIONS);
-  const [widgets, setWidgets] = useState(INITIAL_WIDGETS);
+  const [tracks, setTracks] = useState(() => {
+    try {
+      const saved = localStorage.getItem("lumen_tracks_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_TRACKS;
+  });
+
+  const [sessions, setSessions] = useState(() => {
+    try {
+      const saved = localStorage.getItem("lumen_sessions_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_SESSIONS;
+  });
+
+  const [widgets, setWidgets] = useState(() => {
+    try {
+      const saved = localStorage.getItem("lumen_widgets_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_WIDGETS;
+  });
+
+  // Persist state changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("lumen_sessions_v1", JSON.stringify(sessions));
+    } catch (e) {}
+  }, [sessions]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("lumen_tracks_v1", JSON.stringify(tracks));
+    } catch (e) {}
+  }, [tracks]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("lumen_widgets_v1", JSON.stringify(widgets));
+    } catch (e) {}
+  }, [widgets]);
 
   // Active views: "four-year-plan" | "alumni-pathways" | "widgets" | "session" | "career"
   const [activeView, setActiveView] = useState("session");
@@ -31,6 +79,30 @@ export default function App() {
 
   const currentSession = sessions.find((s) => s.id === selectedSessionId) || sessions[0];
   const currentTrack = tracks.find((t) => t.id === currentSession?.trackId);
+
+  const handleUpdateSession = (sessionId, updates) => {
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === sessionId) {
+          return { ...s, ...updates };
+        }
+        return s;
+      })
+    );
+  };
+
+  const handleResetDemo = () => {
+    try {
+      localStorage.removeItem("lumen_sessions_v1");
+      localStorage.removeItem("lumen_tracks_v1");
+      localStorage.removeItem("lumen_widgets_v1");
+    } catch (e) {}
+    setSessions(INITIAL_SESSIONS);
+    setTracks(INITIAL_TRACKS);
+    setWidgets(INITIAL_WIDGETS);
+    setSelectedSessionId(INITIAL_SESSIONS[0].id);
+    setActiveView("session");
+  };
 
   const handleNavigate = (view) => {
     setActiveView(view);
@@ -159,6 +231,7 @@ export default function App() {
         onNavigate={handleNavigate}
         onOpenNewSessionModal={handleOpenNewSessionModal}
         onSelectSession={handleSelectSession}
+        onResetDemo={handleResetDemo}
       />
 
       {/* Main Content Area */}
@@ -208,6 +281,7 @@ export default function App() {
               track={currentTrack}
               onOpenVisualizer={handleOpenVisualizer}
               onAddWidget={(newWidget) => setWidgets((prev) => [newWidget, ...prev])}
+              onUpdateSession={handleUpdateSession}
             />
           )}
 

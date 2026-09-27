@@ -54,95 +54,73 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
               : "bg-blue-600 text-white rounded-br-sm"
           }`}
         >
-          {/* Active Tool Status (e.g. Querying dataset or Generating widget) */}
-          {message.toolStatus && (
-            <div className="flex items-center gap-2 py-1.5 px-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs mb-2.5 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping" />
-              <span className="font-medium">{message.toolStatus}</span>
-            </div>
-          )}
-
-          {/* Empty streaming loading dots */}
-          {message.isStreaming && !message.content && !message.toolStatus && (
-            <div className="flex items-center gap-1.5 py-1">
-              <span className="w-2 h-2 rounded-full bg-yellow-400/80 animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-2 h-2 rounded-full bg-yellow-400/80 animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="w-2 h-2 rounded-full bg-yellow-400/80 animate-bounce" style={{ animationDelay: "300ms" }} />
-            </div>
-          )}
-
           {/* Formatted Content with ReactMarkdown */}
-          {message.content && (
-            <div className="leading-relaxed">
-              <ReactMarkdown
-                components={{
-                  p: ({ children }) => (
-                    <p className="mb-2.5 last:mb-0 leading-relaxed text-zinc-200">
+          <div className="leading-relaxed">
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => (
+                  <p className="mb-2.5 last:mb-0 leading-relaxed text-zinc-200">
+                    {children}
+                  </p>
+                ),
+                strong: ({ children }) => (
+                  <strong className="font-semibold text-white">
+                    {children}
+                  </strong>
+                ),
+                em: ({ children }) => (
+                  <em className="italic text-zinc-300">{children}</em>
+                ),
+                ul: ({ children }) => (
+                  <ul className="my-2.5 ml-4 list-disc space-y-1 text-zinc-200">
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="my-2.5 ml-4 list-decimal space-y-1 text-zinc-200">
+                    {children}
+                  </ol>
+                ),
+                li: ({ children }) => (
+                  <li className="leading-relaxed">{children}</li>
+                ),
+                code: ({ inline, className, children, ...props }) => {
+                  return (
+                    <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-yellow-300 font-mono text-xs border border-zinc-700/50">
                       {children}
-                    </p>
-                  ),
-                  strong: ({ children }) => (
-                    <strong className="font-semibold text-white">
-                      {children}
-                    </strong>
-                  ),
-                  em: ({ children }) => (
-                    <em className="italic text-zinc-300">{children}</em>
-                  ),
-                  ul: ({ children }) => (
-                    <ul className="my-2.5 ml-4 list-disc space-y-1 text-zinc-200">
-                      {children}
-                    </ul>
-                  ),
-                  ol: ({ children }) => (
-                    <ol className="my-2.5 ml-4 list-decimal space-y-1 text-zinc-200">
-                      {children}
-                    </ol>
-                  ),
-                  li: ({ children }) => (
-                    <li className="leading-relaxed">{children}</li>
-                  ),
-                  code: ({ inline, className, children, ...props }) => {
-                    return (
-                      <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-yellow-300 font-mono text-xs border border-zinc-700/50">
-                        {children}
-                      </code>
-                    );
-                  },
-                  pre: ({ children }) => (
-                    <pre className="my-3 p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 font-mono text-xs text-yellow-300/90 overflow-x-auto">
-                      {children}
-                    </pre>
-                  ),
-                  h1: ({ children }) => (
-                    <h1 className="text-base font-bold text-white mt-3 mb-1.5">
-                      {children}
-                    </h1>
-                  ),
-                  h2: ({ children }) => (
-                    <h2 className="text-sm font-bold text-white mt-2.5 mb-1">
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children }) => (
-                    <h3 className="text-xs font-bold text-zinc-200 mt-2 mb-1 uppercase tracking-wide">
-                      {children}
-                    </h3>
-                  ),
-                  blockquote: ({ children }) => (
-                    <blockquote className="border-l-2 border-yellow-400/60 pl-3 my-2 text-zinc-400 italic">
-                      {children}
-                    </blockquote>
-                  ),
-                }}
-              >
-                {message.content || ""}
-              </ReactMarkdown>
-              {message.isStreaming && (
-                <span className="inline-block w-1.5 h-3.5 ml-1 bg-yellow-400 animate-pulse align-middle" />
-              )}
-            </div>
-          )}
+                    </code>
+                  );
+                },
+                pre: ({ children }) => (
+                  <pre className="my-3 p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 font-mono text-xs text-yellow-300/90 overflow-x-auto">
+                    {children}
+                  </pre>
+                ),
+                h1: ({ children }) => (
+                  <h1 className="text-base font-bold text-white mt-3 mb-1.5">
+                    {children}
+                  </h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-sm font-bold text-white mt-2.5 mb-1">
+                    {children}
+                  </h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-xs font-bold text-zinc-200 mt-2 mb-1 uppercase tracking-wide">
+                    {children}
+                  </h3>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-2 border-yellow-400/60 pl-3 my-2 text-zinc-400 italic">
+                    {children}
+                  </blockquote>
+                ),
+              }}
+            >
+              {message.content || ""}
+            </ReactMarkdown>
+          </div>
 
           {/* Tool Executions (e.g. SQLite queries on campus dataset) */}
           {message.tool_executions && message.tool_executions.length > 0 && (
