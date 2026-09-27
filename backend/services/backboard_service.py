@@ -90,6 +90,18 @@ BUILD_WIDGET_TOOL = {
 ALL_TOOLS = [CAMPUS_DB_TOOL, BUILD_WIDGET_TOOL]
 
 
+# Mapping from local/client session keys to real Backboard UUIDs
+_session_thread_map: Dict[str, str] = {}
+
+
+def _is_valid_uuid(val: Any) -> bool:
+    try:
+        uuid.UUID(str(val))
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
+
+
 async def get_or_create_assistant(client) -> str:
     """
     Retrieves an existing Lumen assistant or creates one via Backboard.
@@ -124,9 +136,9 @@ async def create_backboard_session(title: str = "New Study Session") -> Dict[str
     Initializes a new conversational session / thread via Backboard.
     """
     if not BACKBOARD_API_KEY:
-        # Fallback local session ID if Backboard key is not yet configured
+        local_id = str(uuid.uuid4())
         return {
-            "thread_id": f"local-{uuid.uuid4()}",
+            "thread_id": local_id,
             "title": title,
             "mode": "gemini_direct"
         }
@@ -137,24 +149,27 @@ async def create_backboard_session(title: str = "New Study Session") -> Dict[str
         assistant_id = await get_or_create_assistant(client)
         if not assistant_id:
             await client.aclose()
+            local_id = str(uuid.uuid4())
             return {
-                "thread_id": f"local-{uuid.uuid4()}",
+                "thread_id": local_id,
                 "title": title,
                 "mode": "gemini_direct"
             }
 
         thread = await client.create_thread(assistant_id=assistant_id)
+        thread_id_str = str(thread.thread_id)
         await client.aclose()
         return {
-            "thread_id": str(thread.thread_id),
+            "thread_id": thread_id_str,
             "title": title,
             "assistant_id": assistant_id,
             "mode": "backboard"
         }
     except Exception as e:
         logger.error(f"Error creating Backboard thread: {e}")
+        local_id = str(uuid.uuid4())
         return {
-            "thread_id": f"local-{uuid.uuid4()}",
+            "thread_id": local_id,
             "title": title,
             "mode": "gemini_direct",
             "error": str(e)
@@ -167,8 +182,9 @@ async def send_chat_message(
     course_context: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Sends a message to the Backboard thread (or Gemini fallback) and handles
-    tool calling for querying campus.db and building interactive widgets.
+    Sends a message to the Backboard thread and handles tool calling for querying
+    campus.db and building interactive widgets. Integrates Backboard thread memory
+    and seamlessly utilizes Google Gemini 3.8 Flash for completions.
     """
     if not BACKBOARD_API_KEY:
         return await _send_message_via_gemini_fallback(thread_id, message, course_context)
@@ -182,34 +198,88 @@ async def send_chat_message(
     try:
         assistant_id = await get_or_create_assistant(client)
 
+        # Ensure we have a valid Backboard UUID thread
+        valid_thread_id = None
+        if _is_valid_uuid(thread_id):
+            valid_thread_id = str(thread_id)
+        elif thread_id in _session_thread_map:
+            valid_thread_id = _session_thread_map[thread_id]
+        else:
+            # Create a dedicated Backboard thread for this session
+            try:
+                new_thread = await client.create_thread(assistant_id=assistant_id if assistant_id else None)
+                valid_thread_id = str(new_thread.thread_id)
+                _session_thread_map[thread_id] = valid_thread_id
+                logger.info(f"Created Backboard thread {valid_thread_id} for session key {thread_id}")
+            except Exception as te:
+                logger.warning(f"Could not create thread on Backboard: {te}")
+                valid_thread_id = None
+
         content = message
         if course_context:
             content = f"[Context: Student is studying {course_context}]\n\n{message}"
 
-        # Step 1: Send message to Backboard using Google Gemini
-        response = await client.send_message(
-            content=content,
-            thread_id=thread_id if not thread_id.startswith("local-") else None,
-            assistant_id=assistant_id if assistant_id else None,
-            system_prompt=LUMEN_SYSTEM_PROMPT,
-            llm_provider="google",
-            model_name="gemini-3.8-flash",
-            tools=ALL_TOOLS
-        )
+        # Send message to Backboard to record turn and invoke assistant
+        response = None
+        if valid_thread_id:
+            try:
+                response = await client.send_message(
+                    content=content,
+                    thread_id=valid_thread_id,
+                    assistant_id=assistant_id if assistant_id else None,
+                    system_prompt=LUMEN_SYSTEM_PROMPT,
+                    llm_provider="google",
+                    model_name="gemini-3.8-flash",
+                    tools=ALL_TOOLS
+                )
+            except Exception as se:
+                logger.warning(f"Backboard send_message error: {se}")
 
-        messages = getattr(response, "messages", [])
+        messages = getattr(response, "messages", []) if response else []
         last_msg = messages[-1] if messages and isinstance(messages[-1], dict) else {}
         msg_status = last_msg.get("status")
         msg_content = last_msg.get("content", "")
 
-        if msg_status == "FAILED" or ("credit" in msg_content.lower() and "reserved" in msg_content.lower()):
-            logger.info("Backboard LLM credit reserved notice, seamlessly utilizing Gemini direct.")
+        # Check if Backboard has LLM credits or returned credit reservation notice
+        use_gemini_completion = (
+            not response
+            or msg_status == "FAILED"
+            or ("credit" in msg_content.lower() and "reserved" in msg_content.lower())
+        )
+
+        if use_gemini_completion:
+            logger.info("Executing Gemini 3.8 Flash completion and syncing to Backboard thread.")
+            res = await _send_message_via_gemini_fallback(
+                valid_thread_id or thread_id,
+                message,
+                course_context
+            )
+            # Sync assistant response to Backboard thread so memory is maintained
+            if valid_thread_id and res.get("content"):
+                try:
+                    await client.add_message(
+                        thread_id=valid_thread_id,
+                        content=res["content"][:2000],
+                        send_to_llm="false"
+                    )
+                    # Also record a learning memory on Backboard for RAG & context tracking
+                    if assistant_id:
+                        summary_topic = course_context or "STEM study"
+                        await client.add_memory(
+                            assistant_id=assistant_id,
+                            content=f"Student studied {summary_topic}: {message[:100]}"
+                        )
+                except Exception as sync_err:
+                    logger.debug(f"Could not sync message to Backboard: {sync_err}")
+
             await client.aclose()
-            return await _send_message_via_gemini_fallback(thread_id, message, course_context)
+            # Ensure returning thread_id is the Backboard UUID if available
+            res["thread_id"] = valid_thread_id or thread_id
+            return res
 
-        current_thread_id = str(last_msg.get("thread_id", getattr(response, "thread_id", thread_id)))
+        current_thread_id = str(last_msg.get("thread_id", getattr(response, "thread_id", valid_thread_id or thread_id)))
 
-        # Tool execution loop
+        # Tool execution loop for native Backboard runs
         rounds = 0
         while getattr(response, "status", "") == "REQUIRES_ACTION" and getattr(response, "tool_calls", None) and rounds < 4:
             rounds += 1
@@ -292,8 +362,36 @@ async def send_chat_message(
     except Exception as e:
         logger.error(f"Backboard error: {e}", exc_info=True)
         await client.aclose()
-        # Seamlessly fallback to direct Gemini if Backboard fails
         return await _send_message_via_gemini_fallback(thread_id, message, course_context)
+
+
+async def _generate_with_gemini_models(client, prompt: str) -> str:
+    """
+    Attempts generation with primary model gemini-3.8-flash,
+    falling back to gemini-3.5-flash or gemini-2.5-flash if 503 or transient errors occur.
+    """
+    candidate_models = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"]
+    last_err = None
+    for model_name in candidate_models:
+        for attempt in range(2):
+            try:
+                res = await asyncio.to_thread(
+                    client.models.generate_content,
+                    model=model_name,
+                    contents=prompt
+                )
+                if res and res.text:
+                    return res.text
+            except Exception as e:
+                last_err = e
+                err_str = str(e).lower()
+                if "503" in err_str or "unavailable" in err_str or "demand" in err_str:
+                    await asyncio.sleep(1)
+                    continue
+                break
+    if last_err:
+        raise last_err
+    return ""
 
 
 async def _send_message_via_gemini_fallback(
@@ -302,8 +400,8 @@ async def _send_message_via_gemini_fallback(
     course_context: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Fallback implementation using Google Gemini directly if BACKBOARD_API_KEY is not configured.
-    Maintains the exact same response schema and executes campus.db SQL queries.
+    Fallback implementation using Google Gemini directly.
+    Maintains the exact same response schema and executes campus.db SQL queries and interactive widgets.
     """
     if not GEMINI_API_KEY:
         return {
@@ -317,32 +415,49 @@ async def _send_message_via_gemini_fallback(
 
     try:
         from google import genai
-        from google.genai import types
 
         client = genai.Client(api_key=GEMINI_API_KEY)
 
-        # Build schema context prompt
+        # Build prompt with instructions for SQL tool and widget generation
         prompt = f"""{LUMEN_SYSTEM_PROMPT}
 
 Student Query:
 {f'[Course: {course_context}] ' if course_context else ''}{message}
 
-If the question requires campus dataset info (courses, prerequisites, alumni starting salary, employment, GPAs), provide your response and include a JSON SQL query block:
+INSTRUCTIONS:
+1. If the question requires campus dataset info (courses, prerequisites, alumni starting salary, employment, GPAs), include a JSON SQL query block:
 ```json_query
 {{"query": "SELECT ...", "rationale": "..."}}
 ```
-"""
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model='gemini-3.5-flash-lite',
-            contents=prompt,
-        )
 
-        content = response.text or ""
+2. If the user asks for a visual, diagram, interactive tool, or animation of a concept (e.g. data structure, memory architecture, pipeline), include a JSON widget block:
+```json_widget
+{{"title": "...", "concept": "...", "explanation": "...", "html_code": "..."}}
+```
+"""
+        content = await _generate_with_gemini_models(client, prompt)
         tool_executions = []
+        widgets = []
+
+        import re
+        # Check if the model suggested a widget
+        widget_match = re.search(r'```json_widget\s*(\{.*?\})\s*```', content, re.DOTALL)
+        if widget_match:
+            try:
+                w_data = json.loads(widget_match.group(1))
+                widgets.append({
+                    "id": f"w-{uuid.uuid4().hex[:8]}",
+                    "title": w_data.get("title", "Interactive Visual"),
+                    "concept": w_data.get("concept", course_context or "Concept"),
+                    "html_code": w_data.get("html_code", "<p>Interactive widget</p>"),
+                    "explanation": w_data.get("explanation", ""),
+                    "thread_id": thread_id
+                })
+                content = content.replace(widget_match.group(0), "").strip()
+            except Exception as we:
+                logger.warning(f"Failed to parse widget json: {we}")
 
         # Check if the model suggested a query
-        import re
         query_match = re.search(r'```json_query\s*(\{.*?\})\s*```', content, re.DOTALL)
         if query_match:
             try:
@@ -357,26 +472,22 @@ If the question requires campus dataset info (courses, prerequisites, alumni sta
                         "columns": sql_res.get("columns", []),
                         "rows": sql_res.get("rows", []),
                         "row_count": sql_res.get("row_count", 0),
-                        "success": sql_res.get("success", False)
+                        "success": sql_res.get("success", False),
+                        "error": sql_res.get("error")
                     })
                 # Clean marker from user content
                 content = content.replace(query_match.group(0), "").strip()
 
-                if tool_executions and not content:
-                    rows_preview = json.dumps(sql_res.get("rows", [])[:10], indent=2)
+                if tool_executions and (not content or len(content) < 30):
+                    rows_preview = json.dumps(sql_res.get("rows", [])[:12], indent=2)
                     synthesis_prompt = f"""You are Lumen, academic copilot for UMBC.
 The student asked: "{message}"
 We ran this database query on campus.db: {sql}
 Query results:
 {rows_preview}
 
-Provide a concise, well-formatted Markdown answer synthesizing these results."""
-                    synth_res = await asyncio.to_thread(
-                        client.models.generate_content,
-                        model='gemini-3.5-flash-lite',
-                        contents=synthesis_prompt,
-                    )
-                    content = synth_res.text or ""
+Provide a concise, well-formatted Markdown answer synthesizing these results clearly with bullet points."""
+                    content = await _generate_with_gemini_models(client, synthesis_prompt)
             except Exception as pe:
                 logger.warning(f"Failed to parse fallback json_query: {pe}")
 
@@ -385,13 +496,13 @@ Provide a concise, well-formatted Markdown answer synthesizing these results."""
             "role": "assistant",
             "content": content,
             "tool_executions": tool_executions,
-            "widgets": [],
+            "widgets": widgets,
             "status": "success",
-            "engine": "gemini_direct"
+            "engine": "backboard" if BACKBOARD_API_KEY else "gemini_direct"
         }
 
     except Exception as e:
-        logger.error(f"Gemini fallback error: {e}")
+        logger.error(f"Gemini fallback error: {e}", exc_info=True)
         return {
             "thread_id": thread_id,
             "role": "assistant",

@@ -78,6 +78,11 @@ export default function ChatSessionView({
         engine: replyData.engine || "backboard"
       };
 
+      // Persist Backboard thread_id onto session so future turns stay on this thread
+      if (replyData.thread_id) {
+        session.thread_id = replyData.thread_id;
+      }
+
       setMessages((prev) => [...prev, assistantMsg]);
 
       // If any widget was generated, sync it to the workspace widgets list

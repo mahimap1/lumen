@@ -45,7 +45,7 @@ export default function App() {
     setIsNewSessionModalOpen(true);
   };
 
-  const handleCreateSession = ({
+  const handleCreateSession = async ({
     trackId,
     trackCode,
     trackName,
@@ -69,9 +69,9 @@ export default function App() {
       setTracks((prev) => [...prev, newTrackObj]);
     }
 
-    const newSessionId = `sess-${Date.now()}`;
+    const tempSessionId = `sess-${Date.now()}`;
     const newSession = {
-      id: newSessionId,
+      id: tempSessionId,
       trackId: finalTrackId,
       title: title,
       icon: trackType === "credential" ? "☁️" : trackType === "skill" ? "🛠️" : "⚡",
@@ -81,8 +81,22 @@ export default function App() {
     };
 
     setSessions((prev) => [newSession, ...prev]);
-    setSelectedSessionId(newSessionId);
+    setSelectedSessionId(tempSessionId);
     setActiveView("session");
+
+    // Asynchronously create Backboard thread and attach thread_id
+    try {
+      const bbSession = await createBackboardSession(title);
+      if (bbSession?.thread_id) {
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === tempSessionId ? { ...s, thread_id: bbSession.thread_id } : s
+          )
+        );
+      }
+    } catch (e) {
+      console.warn("Backboard thread creation deferred to first message:", e);
+    }
   };
 
   const handleStartLumenSession = async (suggestedTitle = "Lumen Study Session") => {
