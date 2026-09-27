@@ -1,16 +1,33 @@
 import React, { useState } from "react";
 
-export default function NewSessionModal({ isOpen, onClose, tracks = [], onCreateSession }) {
-  const [selectedType, setSelectedType] = useState("course"); // "course" | "credential" | "skill"
-  const [selectedTrackId, setSelectedTrackId] = useState("");
+export default function NewSessionModal({ isOpen, onClose, tracks = [], onCreateSession, initialType = "course", initialTrackId = "" }) {
+  const [selectedType, setSelectedType] = useState(initialType || "course"); // "course" | "career" | "skill" | "credential"
+  const [selectedTrackId, setSelectedTrackId] = useState(initialTrackId || "");
   const [isCustomTrack, setIsCustomTrack] = useState(false);
   const [customTrackCode, setCustomTrackCode] = useState("");
   const [customTrackName, setCustomTrackName] = useState("");
   const [sessionTopic, setSessionTopic] = useState("");
 
+  // Update selection if modal re-opens with new props
+  React.useEffect(() => {
+    if (isOpen) {
+      setSelectedType(initialType || "course");
+      setSelectedTrackId(initialTrackId || "");
+      setIsCustomTrack(false);
+      setSessionTopic("");
+      setCustomTrackCode("");
+      setCustomTrackName("");
+    }
+  }, [isOpen, initialType, initialTrackId]);
+
   if (!isOpen) return null;
 
-  const filteredTracks = tracks.filter((t) => t.type === selectedType);
+  const filteredTracks = tracks.filter((t) => {
+    if (selectedType === "skill") {
+      return t.type === "skill" || t.type === "credential";
+    }
+    return t.type === selectedType;
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -23,10 +40,13 @@ export default function NewSessionModal({ isOpen, onClose, tracks = [], onCreate
     let tagColor = "blue";
 
     if (isCustomTrack || !selectedTrackId) {
-      trackCode = customTrackCode.trim() || (selectedType === "skill" ? "Skill" : "Course");
+      trackCode = customTrackCode.trim() || (selectedType === "career" ? "Career" : selectedType === "skill" ? "Skill" : "Course");
       trackName = customTrackName.trim() || trackCode;
       trackId = "track-" + Date.now();
-      if (selectedType === "credential") {
+      if (selectedType === "career") {
+        trackIcon = "💼";
+        tagColor = "blue";
+      } else if (selectedType === "credential") {
         trackIcon = "☁️";
         tagColor = "purple";
       } else if (selectedType === "skill") {
@@ -97,7 +117,7 @@ export default function NewSessionModal({ isOpen, onClose, tracks = [], onCreate
           {/* Type Selector Tabs */}
           <div>
             <label style={{ fontSize: "12px", color: "var(--text-secondary)", display: "block", marginBottom: "8px" }}>
-              1. What are you studying today?
+              1. What topic area are you working on?
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
               <button
@@ -106,27 +126,27 @@ export default function NewSessionModal({ isOpen, onClose, tracks = [], onCreate
                 style={{ justifyContent: "center", padding: "8px", fontSize: "12.5px" }}
                 onClick={() => {
                   setSelectedType("course");
-                  setSelectedTrackId(filteredTracks[0]?.id || "");
-                  setIsCustomTrack(false);
-                }}
-              >
-                🎓 Course / Class
-              </button>
-              <button
-                type="button"
-                className={`notion-btn ${selectedType === "credential" ? "primary" : ""}`}
-                style={{ justifyContent: "center", padding: "8px", fontSize: "12.5px" }}
-                onClick={() => {
-                  setSelectedType("credential");
                   setSelectedTrackId("");
                   setIsCustomTrack(false);
                 }}
               >
-                📜 Micro-Credential
+                🎓 Class
               </button>
               <button
                 type="button"
-                className={`notion-btn ${selectedType === "skill" ? "primary" : ""}`}
+                className={`notion-btn ${selectedType === "career" ? "primary" : ""}`}
+                style={{ justifyContent: "center", padding: "8px", fontSize: "12.5px" }}
+                onClick={() => {
+                  setSelectedType("career");
+                  setSelectedTrackId("");
+                  setIsCustomTrack(false);
+                }}
+              >
+                💼 Career
+              </button>
+              <button
+                type="button"
+                className={`notion-btn ${selectedType === "skill" || selectedType === "credential" ? "primary" : ""}`}
                 style={{ justifyContent: "center", padding: "8px", fontSize: "12.5px" }}
                 onClick={() => {
                   setSelectedType("skill");
@@ -134,7 +154,7 @@ export default function NewSessionModal({ isOpen, onClose, tracks = [], onCreate
                   setIsCustomTrack(false);
                 }}
               >
-                🛠️ Skill
+                🛠️ Skills
               </button>
             </div>
           </div>
@@ -143,7 +163,7 @@ export default function NewSessionModal({ isOpen, onClose, tracks = [], onCreate
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
               <label style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-                2. Select {selectedType === "course" ? "Course" : selectedType === "credential" ? "Credential" : "Skill"}
+                2. Select {selectedType === "course" ? "Class" : selectedType === "career" ? "Career Track" : "Skill / Credential"}
               </label>
               <button
                 type="button"
@@ -197,9 +217,9 @@ export default function NewSessionModal({ isOpen, onClose, tracks = [], onCreate
                   placeholder={
                     selectedType === "course"
                       ? "e.g. CMSC 421"
-                      : selectedType === "credential"
-                      ? "e.g. CompTIA Security+"
-                      : "e.g. Docker & Kubernetes"
+                      : selectedType === "career"
+                      ? "e.g. Cloud Architect, SWE Intern"
+                      : "e.g. Docker, System Design, CompTIA"
                   }
                   value={customTrackCode}
                   onChange={(e) => setCustomTrackCode(e.target.value)}

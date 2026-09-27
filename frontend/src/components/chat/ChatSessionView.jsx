@@ -11,6 +11,7 @@ import { LumenOrbSphere } from "../LumenOrb";
 export default function ChatSessionView({
   session,
   track,
+  tracks = [],
   onOpenVisualizer,
   onAddWidget,
   onUpdateSession
@@ -153,28 +154,106 @@ export default function ChatSessionView({
     );
   }
 
-  const showStarterPrompts = messages.length <= 1;
+  const currentCategory = track?.type === "career"
+    ? "career"
+    : track?.type === "skill" || track?.type === "credential"
+    ? "skills"
+    : "classes";
+
+  const handleSelectTrack = (trackId) => {
+    if (!onUpdateSession || !session) return;
+    const selected = tracks.find((t) => t.id === trackId);
+    if (!selected) return;
+
+    const newTitle = `${selected.code} · ${selected.name}`;
+    const newGreeting = `Welcome! Topic updated to **${newTitle}**.\n\nAsk me any question about concepts, requirements, or career outcomes for this topic.`;
+
+    const updatedMessages = (messages.length <= 1)
+      ? [
+          {
+            id: `init-${Date.now()}`,
+            role: "assistant",
+            content: newGreeting,
+            engine: "backboard",
+            tool_executions: [],
+            widgets: []
+          }
+        ]
+      : messages;
+
+    onUpdateSession(session.id, {
+      trackId: selected.id,
+      title: newTitle,
+      messages: updatedMessages
+    });
+
+    if (messages.length <= 1) {
+      setMessages(updatedMessages);
+    }
+  };
+
+  const handleSelectCategory = (catKey) => {
+    // Pick first track belonging to this category
+    const catTrack = tracks.find((t) => {
+      if (catKey === "classes") return (t.type || "course") === "course";
+      if (catKey === "career") return t.type === "career";
+      if (catKey === "skills") return t.type === "skill" || t.type === "credential";
+      return false;
+    });
+    if (catTrack) {
+      handleSelectTrack(catTrack.id);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950/40 relative overflow-hidden">
-      {/* Centered Top Header Bar (No emojis, no subtitle, centered title & tag) */}
-      <header className="flex-none px-6 py-3.5 border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md flex items-center justify-between relative z-10">
-        <div className="w-16" /> {/* Balance spacer */}
+      {/* Centered Top Header Bar with Direct Topic Category Tabs (Classes / Career / Skills) */}
+      <header className="flex-none px-4 sm:px-6 py-2.5 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-md flex items-center justify-between gap-3 relative z-10">
+        {/* Left: Topic Selector Pills */}
+        <div className="flex items-center gap-1.5 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800/90 shadow-inner">
+          <span className="text-[11px] font-semibold text-zinc-400 px-2 uppercase tracking-wider hidden md:inline">
+            Topic:
+          </span>
+          {[
+            { key: "classes", label: "Classes", icon: "📘" },
+            { key: "career", label: "Career", icon: "💼" },
+            { key: "skills", label: "Skills", icon: "🛠️" }
+          ].map((cat) => {
+            const isCatActive = currentCategory === cat.key;
+            return (
+              <button
+                key={cat.key}
+                type="button"
+                onClick={() => handleSelectCategory(cat.key)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isCatActive
+                    ? "bg-yellow-400/15 text-yellow-400 border border-yellow-400/30 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent"
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span className="font-semibold">{cat.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-        <div className="flex items-center gap-2.5 mx-auto">
-          <h1 className="text-sm font-semibold text-zinc-100 tracking-tight">
+        {/* Center: Current active topic & code badge */}
+        <div className="flex items-center gap-2 max-w-[40%] truncate mx-auto">
+          <h1 className="text-xs sm:text-sm font-semibold text-zinc-100 tracking-tight truncate">
             {cleanTitle}
           </h1>
           {track && (
             <Badge
               variant="outline"
-              className="text-[11px] py-0.5 px-2 text-blue-400 border-blue-500/30 bg-blue-500/10 font-medium tracking-wide"
+              className="text-[10px] sm:text-[11px] py-0.5 px-2 text-yellow-400 border-yellow-400/30 bg-yellow-400/10 font-medium tracking-wide flex-shrink-0"
             >
               {track.code}
             </Badge>
           )}
         </div>
 
+        {/* Right: Reset Action */}
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -227,7 +306,10 @@ export default function ChatSessionView({
           setInput={setInput}
           onSend={handleSend}
           isLoading={isLoading}
-          showQuickPrompts={showStarterPrompts}
+          showQuickPrompts={messages.length <= 2}
+          tracks={tracks}
+          selectedTrackId={session?.trackId}
+          onSelectTrack={handleSelectTrack}
         />
       </div>
     </div>

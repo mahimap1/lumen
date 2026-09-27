@@ -1,5 +1,13 @@
 import React, { useState } from "react";
 
+// Helper to remove any emojis from session titles
+function cleanTitle(title = "") {
+  return title
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, "")
+    .replace(/^[\s•\-\/]+/, "")
+    .trim();
+}
+
 export default function Sidebar({
   tracks = [],
   sessions = [],
@@ -87,193 +95,219 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Sessions Section */}
-      <div className="sidebar-section" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-        <div className="sidebar-heading" style={{ marginBottom: "6px" }}>
-          <span>SESSIONS</span>
-        </div>
+      {/* Render helper for a categorized track tree */}
+      <div style={{ flex: 1, overflowY: "auto", minHeight: 0, display: "flex", flexDirection: "column", gap: "14px" }}>
+        {[
+          { key: "classes", title: "CLASSES", types: ["course"], defaultIcon: "📘", newType: "course" },
+          { key: "career", title: "CAREER", types: ["career"], defaultIcon: "💼", newType: "career" },
+          { key: "skills", title: "SKILLS", types: ["skill", "credential"], defaultIcon: "🛠️", newType: "skill" }
+        ].map((section) => {
+          const sectionTracks = tracks.filter((t) =>
+            section.types.includes(t.type || "course")
+          );
 
-        {/* Track Tree with Nested Sessions */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-          {tracks.map((track) => {
-            const trackSessions = sessions.filter((s) => s.trackId === track.id);
-            const hasSessions = trackSessions.length > 0;
-            const isCollapsed = !!collapsedTracks[track.id];
-
-            return (
-              <div key={track.id} className="course-group">
-                {/* Track Row */}
-                <div
-                  className="nav-row"
+          return (
+            <div key={section.key} className="sidebar-section" style={{ marginBottom: 0 }}>
+              <div className="sidebar-heading" style={{ marginBottom: "6px" }}>
+                <span>{section.title}</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenNewSessionModal(null, section.newType)}
                   style={{
-                    padding: "4px 8px",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-tertiary)",
+                    cursor: "pointer",
                     fontSize: "13px",
-                    fontWeight: 500,
-                    color: "var(--text-main)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between"
+                    lineHeight: 1,
+                    padding: "2px 4px",
+                    borderRadius: "3px"
                   }}
-                  onClick={() => {
-                    if (hasSessions) {
-                      toggleTrack(track.id);
-                    } else {
-                      // Prompt to start session in this track
-                      onOpenNewSessionModal(track.id);
-                    }
-                  }}
+                  title={`Start new session in ${section.title.toLowerCase()}`}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-main)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                    {hasSessions ? (
-                      <span
+                  +
+                </button>
+              </div>
+
+              {section.key === "career" ? (
+                // Career has NO session groups—just direct sessions
+                (() => {
+                  const careerSessions = sessions.filter((s) => {
+                    const parentTrack = tracks.find((t) => t.id === s.trackId);
+                    return s.type === "career" || (parentTrack && parentTrack.type === "career");
+                  });
+
+                  if (careerSessions.length === 0) {
+                    return (
+                      <div
                         style={{
-                          fontSize: "9px",
+                          fontSize: "12px",
                           color: "var(--text-tertiary)",
-                          display: "inline-block",
-                          width: "12px",
-                          textAlign: "center",
-                          transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
-                          transition: "transform 0.15s ease"
+                          padding: "4px 8px",
+                          fontStyle: "italic"
                         }}
                       >
-                        ▼
-                      </span>
-                    ) : (
-                      <span style={{ width: "12px", display: "inline-block" }}></span>
-                    )}
-                    <span style={{ fontSize: "13px" }}>{track.icon || "📘"}</span>
-                    <span
-                      style={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }}
-                    >
-                      {track.code}
-                    </span>
-                  </div>
-                </div>
+                        No career sessions yet
+                      </div>
+                    );
+                  }
 
-                {/* Sub-sessions under this track */}
-                {hasSessions && !isCollapsed && (
-                  <div
-                    style={{
-                      marginLeft: "18px",
-                      paddingLeft: "8px",
-                      borderLeft: "1px solid var(--border-subtle)",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "2px",
-                      marginTop: "2px",
-                      marginBottom: "4px"
-                    }}
-                  >
-                    {trackSessions.map((session) => {
-                      const isSelected =
-                        activeView === "session" && selectedSessionId === session.id;
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      {careerSessions.map((session) => {
+                        const isSelected =
+                          activeView === "session" && selectedSessionId === session.id;
 
-                      return (
-                        <div
-                          key={session.id}
-                          className={`course-tree-item ${isSelected ? "active" : ""}`}
-                          onClick={() => onSelectSession(session.id)}
-                          style={{
-                            padding: "4px 8px",
-                            fontSize: "12.5px"
-                          }}
-                        >
-                          <span style={{ fontSize: "12px", opacity: 0.85 }}>
-                            {session.icon || "•"}
-                          </span>
-                          <span
+                        return (
+                          <div
+                            key={session.id}
+                            className={`course-tree-item ${isSelected ? "active" : ""}`}
+                            onClick={() => onSelectSession(session.id)}
                             style={{
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis"
+                              padding: "6px 8px",
+                              fontSize: "12.5px"
                             }}
                           >
-                            {session.title}
-                          </span>
+                            <span
+                              style={{
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis"
+                              }}
+                            >
+                              {cleanTitle(session.title)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              ) : sectionTracks.length === 0 ? (
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--text-tertiary)",
+                    padding: "4px 8px",
+                    fontStyle: "italic"
+                  }}
+                >
+                  No {section.title.toLowerCase()} yet
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  {sectionTracks.map((track) => {
+                    const trackSessions = sessions.filter((s) => s.trackId === track.id);
+                    const hasSessions = trackSessions.length > 0;
+                    const isCollapsed = !!collapsedTracks[track.id];
+
+                    return (
+                      <div key={track.id} className="course-group">
+                        {/* Track Row */}
+                        <div
+                          className="nav-row"
+                          style={{
+                            padding: "4px 8px",
+                            fontSize: "13px",
+                            fontWeight: 500,
+                            color: "var(--text-main)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between"
+                          }}
+                          onClick={() => {
+                            if (hasSessions) {
+                              toggleTrack(track.id);
+                            } else {
+                              onOpenNewSessionModal(track.id, section.newType);
+                            }
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                            {hasSessions ? (
+                              <span
+                                style={{
+                                  fontSize: "9px",
+                                  color: "var(--text-tertiary)",
+                                  display: "inline-block",
+                                  width: "12px",
+                                  textAlign: "center",
+                                  transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                                  transition: "transform 0.15s ease"
+                                }}
+                              >
+                                ▼
+                              </span>
+                            ) : (
+                              <span style={{ width: "12px", display: "inline-block" }}></span>
+                            )}
+                            <span style={{ fontSize: "13px" }}>{track.icon || section.defaultIcon}</span>
+                            <span
+                              style={{
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis"
+                              }}
+                            >
+                              {track.code || track.name}
+                            </span>
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
 
-        {/* Career Coach Section (Kept intact per request) */}
-        <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-subtle)" }}>
-          <div className="sidebar-heading" style={{ marginBottom: "6px" }}>
-            <span>CAREER COACH</span>
-            <span
-              style={{
-                fontSize: "10px",
-                padding: "2px 5px",
-                borderRadius: "4px",
-                background: "rgba(59, 130, 246, 0.15)",
-                color: "#3b82f6",
-                fontWeight: 600
-              }}
-            >
-              DoIT
-            </span>
-          </div>
+                        {/* Sub-sessions under this track */}
+                        {hasSessions && !isCollapsed && (
+                          <div
+                            style={{
+                              marginLeft: "18px",
+                              paddingLeft: "8px",
+                              borderLeft: "1px solid var(--border-subtle)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "2px",
+                              marginTop: "2px",
+                              marginBottom: "4px"
+                            }}
+                          >
+                            {trackSessions.map((session) => {
+                              const isSelected =
+                                activeView === "session" && selectedSessionId === session.id;
 
-          <div
-            className={`nav-row ${activeView === "career" ? "active" : ""}`}
-            onClick={() => onNavigate("career")}
-          >
-            <div className="nav-icon">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                <line x1="12" y1="11" x2="12" y2="17"></line>
-                <line x1="9" y1="14" x2="15" y2="14"></line>
-              </svg>
+                              return (
+                                <div
+                                  key={session.id}
+                                  className={`course-tree-item ${isSelected ? "active" : ""}`}
+                                  onClick={() => onSelectSession(session.id)}
+                                  style={{
+                                    padding: "4px 8px",
+                                    fontSize: "12.5px"
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis"
+                                    }}
+                                  >
+                                    {cleanTitle(session.title)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <span className="nav-title" style={{ fontWeight: activeView === "career" ? 600 : 400 }}>
-              Pathways & ROI
-            </span>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Bottom Demo Controls */}
-      {onResetDemo && (
-        <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.15)" }}>
-          <button
-            onClick={() => {
-              if (window.confirm("Reset demo data and restore pristine judge conversations?")) {
-                onResetDemo();
-              }
-            }}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--text-tertiary)",
-              fontSize: "11px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "3px 6px",
-              borderRadius: "4px",
-              transition: "color 0.2s"
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-main)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
-            title="Reset demo conversations, widgets, and pathways"
-          >
-            <span style={{ fontSize: "12px" }}>↺</span>
-            <span>Reset Demo State</span>
-          </button>
-          <span style={{ fontSize: "10px", color: "var(--text-tertiary)", fontFamily: "monospace" }}>
-            Lumen AI
-          </span>
-        </div>
-      )}
     </aside>
   );
 }

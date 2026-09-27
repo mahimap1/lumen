@@ -72,3 +72,183 @@
   text-align: left;
   display: flex;
 }
+
+/* =========================================================
+   Lumen Mascot Orb Animations & Styles
+   ========================================================= */
+.lumen-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Floor Reflection Shadow Base */
+.lumen-shadow {
+  position: absolute;
+  bottom: -12px;
+  left: 15%;
+  width: 70%;
+  height: 12px;
+  background: radial-gradient(ellipse at center, rgba(255, 190, 80, 0.3) 0%, rgba(255, 190, 80, 0) 70%);
+  border-radius: 50%;
+  transition: all 0.4s ease;
+  pointer-events: none;
+}
+
+/* Glowing Orb Body - IDLE / SOFT AMBIENT GLOW */
+.lumen-mascot-orb {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: relative;
+  background: radial-gradient(circle at 35% 30%, #fffdf0 0%, #fde8a0 30%, #f3b952 65%, #d9881e 100%);
+  box-shadow: 
+    0 0 15px rgba(243, 185, 82, 0.35),
+    0 0 30px rgba(217, 136, 30, 0.25),
+    inset -4px -6px 12px rgba(160, 80, 0, 0.3),
+    inset 3px 3px 8px rgba(255, 255, 255, 0.7);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: subtleGlowPulse 4s ease-in-out infinite;
+}
+
+/* CLICKED / TURNED ON & RADIANT */
+.lumen-button.active .lumen-mascot-orb,
+.lumen-mascot-orb.active {
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #fffae0 25%, #ffe17d 55%, #ffd05b 80%, #f5a623 100%);
+  box-shadow: 
+    0 0 25px rgba(255, 225, 125, 0.9),
+    0 0 55px rgba(255, 208, 91, 0.7),
+    0 0 85px rgba(245, 166, 35, 0.5),
+    inset -4px -6px 12px rgba(200, 110, 0, 0.35),
+    inset 4px 4px 10px rgba(255, 255, 255, 0.9);
+  animation: floatAndGlow 3.5s ease-in-out infinite;
+}
+
+.lumen-button.active .lumen-shadow,
+.lumen-shadow.active {
+  background: radial-gradient(ellipse at center, rgba(255, 208, 115, 0.7) 0%, rgba(255, 208, 115, 0) 70%);
+  animation: shadowPulse 3.5s ease-in-out infinite;
+}
+
+.lumen-button:hover {
+  transform: scale(1.08);
+}
+
+.lumen-button:active {
+  transform: scale(0.95);
+}
+
+/* Facial Container */
+.lumen-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+
+.eyes-container {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+  margin-left: 10px;
+}
+
+/* EYE EXPRESSION 1: Happy Crescent Arches (Default / Idle) */
+.lumen-eye {
+  width: 16px;
+  height: 12px;
+  border-top: 3.5px solid #281d11;
+  border-radius: 12px 12px 0 0;
+  transform: rotate(-6deg);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.85;
+}
+
+.lumen-eye.right {
+  transform: rotate(-2deg);
+}
+
+/* EYE EXPRESSION 2: Vertical Ovals (Hovered OR Active) */
+.lumen-button:hover .lumen-eye,
+.lumen-button.active .lumen-eye,
+.lumen-eye.active {
+  width: 7px;
+  height: 18px;
+  background-color: #23190e;
+  border: none;
+  border-radius: 10px;
+  transform: rotate(0deg) translateY(-2px);
+  opacity: 1;
+}
+
+/* Smaller variant for chat / embedded use */
+.lumen-mascot-orb.compact .lumen-face .eyes-container {
+  gap: 8px;
+  margin-top: 3px;
+  margin-left: 6px;
+}
+.lumen-mascot-orb.compact .lumen-eye {
+  width: 10px;
+  height: 8px;
+  border-top: 2.5px solid #281d11;
+}
+.lumen-button:hover .lumen-mascot-orb.compact .lumen-eye,
+.lumen-button.active .lumen-mascot-orb.compact .lumen-eye,
+.lumen-mascot-orb.compact .lumen-eye.active {
+  width: 5px;
+  height: 12px;
+}
+
+@keyframes subtleGlowPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 15px rgba(243, 185, 82, 0.35),
+      0 0 30px rgba(217, 136, 30, 0.2),
+      inset -4px -6px 12px rgba(160, 80, 0, 0.3),
+      inset 3px 3px 8px rgba(255, 255, 255, 0.7);
+  }
+  50% {
+    box-shadow: 
+      0 0 22px rgba(243, 185, 82, 0.55),
+      0 0 40px rgba(217, 136, 30, 0.35),
+      inset -4px -6px 12px rgba(160, 80, 0, 0.3),
+      inset 3px 3px 8px rgba(255, 255, 255, 0.85);
+  }
+}
+
+@keyframes floatAndGlow {
+  0%, 100% {
+    transform: translateY(0px);
+    filter: drop-shadow(0 0 15px rgba(255, 214, 110, 0.5));
+  }
+  50% {
+    transform: translateY(-10px);
+    filter: drop-shadow(0 0 28px rgba(255, 214, 110, 0.85));
+  }
+}
+
+@keyframes shadowPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(0.75);
+    opacity: 0.3;
+  }
+}
+

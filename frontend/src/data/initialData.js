@@ -1,3 +1,5 @@
+import { ML_WIDGETS } from "./mlWidgets";
+
 export const INITIAL_TRACKS = [
   {
     id: "cmsc313",
@@ -43,9 +45,25 @@ export const INITIAL_TRACKS = [
     id: "aws_ccp",
     code: "AWS CCP",
     name: "AWS Certified Cloud Practitioner",
-    type: "credential",
+    type: "skill",
     icon: "☁️",
     tagColor: "purple"
+  },
+  {
+    id: "git_skill",
+    code: "Git & GitHub",
+    name: "Version Control & Collaboration",
+    type: "skill",
+    icon: "🛠️",
+    tagColor: "orange"
+  },
+  {
+    id: "career_swe",
+    code: "SWE Career & Pathways",
+    name: "Software Engineering & Tech Pathways",
+    type: "career",
+    icon: "💼",
+    tagColor: "blue"
   }
 ];
 
@@ -348,116 +366,32 @@ Your most critical degree milestone is **CMSC 341 (Data Structures)**. It acts a
 - **NLB (Network Load Balancer)**: OSI Layer 4 (TCP/UDP/TLS).`,
     widgetIds: ["aws-alb-balancer"],
     messages: []
+  },
+  {
+    id: "git-rebase-workflow",
+    trackId: "git_skill",
+    title: "Interactive Rebase & Branching",
+    icon: "🛠️",
+    description: "Git rebase vs merge, commit history squashing, and conflict resolution workflows.",
+    notes: `## Git Workflow & Branching
+- Rebase: linear history replay.
+- Merge: preserved topological commit graph.`,
+    widgetIds: ["git-rebase"],
+    messages: []
+  },
+  {
+    id: "swe-internship-prep",
+    trackId: "career_swe",
+    title: "SWE Internship & Resume Strategy",
+    icon: "💼",
+    description: "Technical interview prep, resume tailoring, and campus career fair roadmap.",
+    notes: `## SWE Career Readiness
+- Target 2+ internships prior to graduation for optimal salary tier placement.
+- Emphasize systems projects and data structures proficiency.`,
+    widgetIds: [],
+    messages: []
   }
 ];
 
-export const INITIAL_WIDGETS = [
-  {
-    id: "ram-arch",
-    title: "RAM Architecture: SRAM vs DRAM Cell & Refresh Cycle",
-    trackId: "cmsc313",
-    trackCode: "CMSC313",
-    trackType: "course",
-    trackTag: "blue",
-    engine: "Interactive HTML/SVG",
-    topic: "Memory Hierarchy & Cell Electronics",
-    desc: "Simulates capacitive discharge in DRAM 1T1C cells versus 6T bistable SRAM flip-flop latches.",
-    previewType: "ram"
-  },
-  {
-    id: "linked-list-ops",
-    title: "Linked List: Cycle Detection & In-Place Pointer Inversion",
-    trackId: "cmsc341",
-    trackCode: "CMSC341",
-    trackType: "course",
-    trackTag: "blue",
-    engine: "Interactive HTML/SVG",
-    topic: "Pointer Manipulation Invariants",
-    desc: "Visualizes tortoise-and-hare two-pointer traversal meeting invariant and O(1) memory link reversal.",
-    previewType: "list"
-  },
-  {
-    id: "avl-rot",
-    title: "AVL Tree: Single Right & Left-Right Rotations",
-    trackId: "cmsc341",
-    trackCode: "CMSC341",
-    trackType: "course",
-    trackTag: "blue",
-    engine: "Interactive HTML/SVG",
-    topic: "Tree Balancing Invariants",
-    desc: "Restores height-balance factor |h_L - h_R| <= 1 in O(1) pointer updates upon insertion.",
-    previewType: "tree"
-  },
-  {
-    id: "matrix-transform",
-    title: "Matrix Multiplication: 2D Linear Basis Vector Transformation",
-    trackId: "math221",
-    trackCode: "MATH221",
-    trackType: "course",
-    trackTag: "green",
-    engine: "Interactive HTML/SVG",
-    topic: "Coordinate Transformation & Inner Products",
-    desc: "Interactive coordinate grid showing how matrix columns warp standard unit basis vectors i-hat and j-hat.",
-    previewType: "matrix"
-  },
-  {
-    id: "eigen-transform",
-    title: "Eigenvalues & Invariant Subspace Transformation",
-    trackId: "math221",
-    trackCode: "MATH221",
-    trackType: "course",
-    trackTag: "green",
-    engine: "3Blue1Brown Manim",
-    topic: "Linear Algebra & Coordinate Systems",
-    desc: "Visualizes the coordinate stretch where A·v = λ·v, maintaining directional collinearity.",
-    previewType: "matrix"
-  },
-  {
-    id: "aws-alb-balancer",
-    title: "AWS Elastic Load Balancer: Layer 7 Request Router & Target Groups",
-    trackId: "aws_ccp",
-    trackCode: "AWS CCP",
-    trackType: "credential",
-    trackTag: "purple",
-    engine: "Interactive HTML/SVG",
-    topic: "Cloud High Availability & Fault Tolerance",
-    desc: "Interactive traffic distributor simulating round-robin and least-outstanding requests across Multi-AZ targets.",
-    previewType: "cloud"
-  },
-  {
-    id: "econ-elasticity",
-    title: "Microeconomics: Supply, Demand & Price Elasticity Equilibrium",
-    trackId: "econ102",
-    trackCode: "ECON102",
-    trackType: "course",
-    trackTag: "orange",
-    engine: "Interactive HTML/SVG",
-    topic: "Equilibrium & Deadweight Loss",
-    desc: "Calculates price elasticity of demand coefficient and tax wedge deadweight loss shifts.",
-    previewType: "chart"
-  },
-  {
-    id: "sci-kinematics",
-    title: "Kinematics & Harmonic Oscillator: Phase Space Orbits",
-    trackId: "sci101",
-    trackCode: "SCI101",
-    trackType: "course",
-    trackTag: "green",
-    engine: "Interactive HTML/SVG",
-    topic: "Classical Mechanics & Energy Conservation",
-    desc: "Interactive conservation of mechanical energy visualization for spring-mass potential and kinetic energy trades.",
-    previewType: "graph"
-  },
-  {
-    id: "git-rebase",
-    title: "Git Workflows: Interactive Rebase vs Merge Fast-Forward",
-    trackId: "git_skill",
-    trackCode: "Git Workflows",
-    trackType: "skill",
-    trackTag: "purple",
-    engine: "Interactive HTML/SVG",
-    topic: "Version Control & Branching Invariants",
-    desc: "Simulates commit DAG transformations, cherry-picks, and linear git history flattening.",
-    previewType: "tree"
-  }
-];
+export const INITIAL_WIDGETS = ML_WIDGETS;
+

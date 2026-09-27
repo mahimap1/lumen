@@ -14,7 +14,7 @@ import { INITIAL_TRACKS, INITIAL_SESSIONS, INITIAL_WIDGETS } from "./data/initia
 export default function App() {
   const [tracks, setTracks] = useState(() => {
     try {
-      const saved = localStorage.getItem("lumen_tracks_v1");
+      const saved = localStorage.getItem("lumen_tracks_v2");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -25,7 +25,7 @@ export default function App() {
 
   const [sessions, setSessions] = useState(() => {
     try {
-      const saved = localStorage.getItem("lumen_sessions_v1");
+      const saved = localStorage.getItem("lumen_sessions_v2");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -36,7 +36,7 @@ export default function App() {
 
   const [widgets, setWidgets] = useState(() => {
     try {
-      const saved = localStorage.getItem("lumen_widgets_v1");
+      const saved = localStorage.getItem("lumen_widgets_v2");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -48,29 +48,45 @@ export default function App() {
   // Persist state changes to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem("lumen_sessions_v1", JSON.stringify(sessions));
+      localStorage.setItem("lumen_sessions_v2", JSON.stringify(sessions));
     } catch (e) {}
   }, [sessions]);
 
   useEffect(() => {
     try {
-      localStorage.setItem("lumen_tracks_v1", JSON.stringify(tracks));
+      localStorage.setItem("lumen_tracks_v2", JSON.stringify(tracks));
     } catch (e) {}
   }, [tracks]);
 
   useEffect(() => {
     try {
-      localStorage.setItem("lumen_widgets_v1", JSON.stringify(widgets));
+      localStorage.setItem("lumen_widgets_v2", JSON.stringify(widgets));
     } catch (e) {}
   }, [widgets]);
 
   // Active views: "four-year-plan" | "alumni-pathways" | "widgets" | "session" | "career"
-  const [activeView, setActiveView] = useState("session");
+  const [activeView, setActiveView] = useState(() => {
+    try {
+      const saved = localStorage.getItem("lumen_active_view_v1");
+      if (saved) return saved;
+    } catch (e) {}
+    return "four-year-plan";
+  });
   const [selectedSessionId, setSelectedSessionId] = useState(INITIAL_SESSIONS[0]?.id || "cmsc313-ram");
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem("lumen_active_view_v1", activeView);
+    } catch (e) {}
+  }, [activeView]);
+
   // Modal states
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [newSessionModalConfig, setNewSessionModalConfig] = useState({
+    initialType: "course",
+    initialTrackId: ""
+  });
   const [visualizerModal, setVisualizerModal] = useState({
     isOpen: false,
     concept: "RAM Architecture: SRAM vs DRAM Cell",
@@ -93,9 +109,9 @@ export default function App() {
 
   const handleResetDemo = () => {
     try {
-      localStorage.removeItem("lumen_sessions_v1");
-      localStorage.removeItem("lumen_tracks_v1");
-      localStorage.removeItem("lumen_widgets_v1");
+      localStorage.removeItem("lumen_sessions_v2");
+      localStorage.removeItem("lumen_tracks_v2");
+      localStorage.removeItem("lumen_widgets_v2");
     } catch (e) {}
     setSessions(INITIAL_SESSIONS);
     setTracks(INITIAL_TRACKS);
@@ -113,7 +129,11 @@ export default function App() {
     setActiveView("session");
   };
 
-  const handleOpenNewSessionModal = (prefillTrackId = null) => {
+  const handleOpenNewSessionModal = (prefillTrackId = null, prefillType = "course") => {
+    setNewSessionModalConfig({
+      initialType: prefillType || "course",
+      initialTrackId: prefillTrackId || ""
+    });
     setIsNewSessionModalOpen(true);
   };
 
@@ -135,8 +155,8 @@ export default function App() {
         code: trackCode,
         name: trackName,
         type: trackType,
-        icon: trackIcon || "📌",
-        tagColor: tagColor || "blue"
+        icon: trackIcon || (trackType === "career" ? "💼" : trackType === "skill" ? "🛠️" : "📘"),
+        tagColor: tagColor || (trackType === "career" ? "blue" : trackType === "skill" ? "orange" : "blue")
       };
       setTracks((prev) => [...prev, newTrackObj]);
     }
@@ -146,7 +166,7 @@ export default function App() {
       id: tempSessionId,
       trackId: finalTrackId,
       title: title,
-      icon: trackType === "credential" ? "☁️" : trackType === "skill" ? "🛠️" : "⚡",
+      icon: trackType === "career" ? "💼" : trackType === "credential" ? "☁️" : trackType === "skill" ? "🛠️" : "⚡",
       description: `Active study session focusing on ${title} (${trackCode}).`,
       messages: [],
       widgetIds: []
@@ -171,18 +191,20 @@ export default function App() {
     }
   };
 
-  const handleStartLumenSession = async (suggestedTitle = "Lumen Study Session") => {
+  const handleStartLumenSession = async (defaultTrackId = null, suggestedTitle = null) => {
     setIsCreatingSession(true);
     try {
-      const sessionData = await createBackboardSession(suggestedTitle);
+      const selectedTrack = tracks.find((t) => t.id === defaultTrackId) || tracks[0];
+      const title = suggestedTitle || (selectedTrack ? `${selectedTrack.code} · ${selectedTrack.name}` : "Lumen Study Session");
+      const sessionData = await createBackboardSession(title).catch(() => ({}));
       const newSessionId = sessionData.thread_id || `sess-${Date.now()}`;
       const newSession = {
         id: newSessionId,
         thread_id: sessionData.thread_id,
-        trackId: tracks[0]?.id || "cmsc-core",
-        title: suggestedTitle,
-        icon: "⚡",
-        description: "Active conversational study thread with Backboard persistent memory",
+        trackId: selectedTrack?.id || tracks[0]?.id || "cmsc313",
+        title: title,
+        icon: selectedTrack?.type === "career" ? "💼" : selectedTrack?.type === "skill" ? "🛠️" : "⚡",
+        description: `Active study session focusing on ${title}`,
         messages: [],
         widgetIds: []
       };
@@ -191,6 +213,20 @@ export default function App() {
       setActiveView("session");
     } catch (err) {
       console.error("Error creating Lumen session:", err);
+      // Fallback local session if creation fails
+      const tempId = `sess-${Date.now()}`;
+      const fallbackTrack = tracks.find((t) => t.id === defaultTrackId) || tracks[0];
+      const fallbackSession = {
+        id: tempId,
+        trackId: fallbackTrack?.id || "cmsc313",
+        title: fallbackTrack ? `${fallbackTrack.code} · ${fallbackTrack.name}` : "Lumen Study Session",
+        icon: "⚡",
+        messages: [],
+        widgetIds: []
+      };
+      setSessions((prev) => [fallbackSession, ...prev]);
+      setSelectedSessionId(tempId);
+      setActiveView("session");
     } finally {
       setIsCreatingSession(false);
     }
@@ -207,8 +243,10 @@ export default function App() {
         handleSelectSession(existingSession.id);
         return;
       }
+      handleStartLumenSession(existing.id, `Study Session: ${existing.code}`);
+      return;
     }
-    handleStartLumenSession(`Study Session: ${courseCode}`);
+    handleStartLumenSession(null, `Study Session: ${courseCode}`);
   };
 
   const handleOpenVisualizer = (concept, courseCode = "STEM") => {
@@ -260,7 +298,14 @@ export default function App() {
           className="notion-content-container"
           style={{
             height: activeView === "session" ? "100vh" : "auto",
-            padding: activeView === "session" ? 0 : undefined,
+            maxHeight: activeView === "session" ? "100vh" : "none",
+            display: activeView === "session" ? "flex" : undefined,
+            flexDirection: activeView === "session" ? "column" : undefined,
+            padding: activeView === "session" ? 0 : activeView === "four-year-plan" ? "24px 32px 60px" : undefined,
+            maxWidth: activeView === "session" || activeView === "four-year-plan" || activeView === "alumni-pathways" ? "100%" : undefined,
+            width: activeView === "session" || activeView === "four-year-plan" ? "100%" : undefined,
+            boxSizing: "border-box",
+            overflowX: "hidden"
           }}
         >
           {activeView === "four-year-plan" && (
@@ -279,6 +324,7 @@ export default function App() {
             <ChatSessionView
               session={currentSession}
               track={currentTrack}
+              tracks={tracks}
               onOpenVisualizer={handleOpenVisualizer}
               onAddWidget={(newWidget) => setWidgets((prev) => [newWidget, ...prev])}
               onUpdateSession={handleUpdateSession}
@@ -289,9 +335,18 @@ export default function App() {
         </div>
       </main>
 
-      {/* Floating Yellow Orb: Fades out in session view and anchors to the left of messages */}
+      {/* Floating Yellow Mascot Orb: Fades out in session view; directly opens session chat window on click */}
       <LumenOrb
-        onClick={() => handleStartLumenSession()}
+        onClick={() => {
+          if (sessions.length === 0) {
+            handleStartLumenSession();
+          } else {
+            if (!selectedSessionId) {
+              setSelectedSessionId(sessions[0].id);
+            }
+            setActiveView("session");
+          }
+        }}
         isCreating={isCreatingSession}
         isHidden={activeView === "session"}
       />
@@ -309,6 +364,8 @@ export default function App() {
         isOpen={isNewSessionModalOpen}
         onClose={() => setIsNewSessionModalOpen(false)}
         tracks={tracks}
+        initialType={newSessionModalConfig.initialType}
+        initialTrackId={newSessionModalConfig.initialTrackId}
         onCreateSession={handleCreateSession}
       />
     </div>
