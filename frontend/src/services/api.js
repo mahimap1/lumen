@@ -328,3 +328,51 @@ export async function sendChatMessage(message, courses, history = []) {
   };
 }
 
+export async function createSession(title = "New Study Session", courseContext = null) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/sessions/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, course_context: courseContext })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.session;
+    }
+  } catch (err) {
+    console.warn("Error creating session via backend:", err);
+  }
+  return {
+    thread_id: `local-${Date.now()}`,
+    title: title || "New Study Session",
+    mode: "local_fallback"
+  };
+}
+
+export async function sendSessionMessage(threadId, message, courseContext = null) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/sessions/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: threadId,
+        message,
+        course_context: courseContext
+      })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("Error sending message to session:", err);
+  }
+  return {
+    thread_id: threadId,
+    role: "assistant",
+    content: "I'm having trouble connecting to the Lumen backend service. Please check your backend connection.",
+    tool_executions: [],
+    widgets: [],
+    status: "error"
+  };
+}
+

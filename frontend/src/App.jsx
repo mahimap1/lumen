@@ -3,14 +3,13 @@ import Sidebar from "./components/Sidebar";
 import FourYearPlanView from "./components/FourYearPlanView";
 import AlumniPathwaysView from "./components/AlumniPathwaysView";
 import VisualArchive from "./components/VisualArchive";
-import SessionView from "./components/SessionView";
 import VisualizerModal from "./components/VisualizerModal";
-import LumenPanel from "./components/LumenPanel";
 import CareerDashboard from "./components/CareerDashboard";
 import NewSessionModal from "./components/NewSessionModal";
+import LumenOrb from "./components/LumenOrb";
+import ChatSessionView from "./components/chat/ChatSessionView";
+import { createSession as createBackboardSession } from "./services/api";
 import { INITIAL_TRACKS, INITIAL_SESSIONS, INITIAL_WIDGETS } from "./data/initialData";
-
-const LUMEN_PANEL_WIDTH = 300;
 
 export default function App() {
   const [tracks, setTracks] = useState(INITIAL_TRACKS);
@@ -20,9 +19,7 @@ export default function App() {
   // Active views: "four-year-plan" | "alumni-pathways" | "widgets" | "session" | "career"
   const [activeView, setActiveView] = useState("session");
   const [selectedSessionId, setSelectedSessionId] = useState(INITIAL_SESSIONS[0]?.id || "cmsc313-ram");
-
-  // Lumen assistant panel
-  const [isLumenOpen, setIsLumenOpen] = useState(true);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
 
   // Modal states
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
@@ -42,7 +39,6 @@ export default function App() {
   const handleSelectSession = (sessionId) => {
     setSelectedSessionId(sessionId);
     setActiveView("session");
-    setIsLumenOpen(true);
   };
 
   const handleOpenNewSessionModal = (prefillTrackId = null) => {
@@ -80,16 +76,38 @@ export default function App() {
       title: title,
       icon: trackType === "credential" ? "☁️" : trackType === "skill" ? "🛠️" : "⚡",
       description: `Active study session focusing on ${title} (${trackCode}).`,
-      notes: `## Study Session: ${title} (${trackCode})
-- Initialized on ${new Date().toLocaleDateString()}.
-- Focus: Concept mechanics, key invariants, and problem analysis.`,
+      messages: [],
       widgetIds: []
     };
 
     setSessions((prev) => [newSession, ...prev]);
     setSelectedSessionId(newSessionId);
     setActiveView("session");
-    setIsLumenOpen(true);
+  };
+
+  const handleStartLumenSession = async (suggestedTitle = "Lumen Study Session") => {
+    setIsCreatingSession(true);
+    try {
+      const sessionData = await createBackboardSession(suggestedTitle);
+      const newSessionId = sessionData.thread_id || `sess-${Date.now()}`;
+      const newSession = {
+        id: newSessionId,
+        thread_id: sessionData.thread_id,
+        trackId: tracks[0]?.id || "cmsc-core",
+        title: suggestedTitle,
+        icon: "⚡",
+        description: "Active conversational study thread with Backboard persistent memory",
+        messages: [],
+        widgetIds: []
+      };
+      setSessions((prev) => [newSession, ...prev]);
+      setSelectedSessionId(newSessionId);
+      setActiveView("session");
+    } catch (err) {
+      console.error("Error creating Lumen session:", err);
+    } finally {
+      setIsCreatingSession(false);
+    }
   };
 
   const handleStartSessionFromCourse = (courseCode) => {
@@ -104,7 +122,7 @@ export default function App() {
         return;
       }
     }
-    setIsNewSessionModalOpen(true);
+    handleStartLumenSession(`Study Session: ${courseCode}`);
   };
 
   const handleOpenVisualizer = (concept, courseCode = "STEM") => {
@@ -115,10 +133,8 @@ export default function App() {
     });
   };
 
-  const panelOffset = isLumenOpen ? LUMEN_PANEL_WIDTH : 0;
-
   return (
-    <div className="app-shell">
+    <div className="app-shell relative">
       {/* Left Navigation Sidebar */}
       <Sidebar
         tracks={tracks}
@@ -132,18 +148,15 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main
-        className="notion-main"
-        style={{ marginRight: panelOffset, transition: "margin-right 0.2s ease" }}
-      >
+      <main className="notion-main">
         {/* Sticky Topbar with Breadcrumbs */}
         <div className="notion-topbar">
           <div className="breadcrumbs">
             <span
               onClick={() => handleNavigate("four-year-plan")}
-              style={{ fontWeight: 600, color: "var(--text-main)" }}
+              style={{ fontWeight: 600, color: "var(--text-main)", cursor: "pointer" }}
             >
-              ✨ Lumen
+              Lumen Workspace
             </span>
             <span>/</span>
             {activeView === "four-year-plan" && <span>Four Year Plan</span>}
@@ -166,32 +179,10 @@ export default function App() {
               </>
             )}
           </div>
-
-          {/* Toggle Lumen panel button */}
-          <button
-            onClick={() => setIsLumenOpen((prev) => !prev)}
-            title={isLumenOpen ? "Close Lumen AI" : "Open Lumen AI"}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "12.5px",
-              color: isLumenOpen ? "var(--text-main)" : "var(--text-secondary)",
-              background: isLumenOpen ? "var(--bg-active)" : "transparent",
-              border: "none",
-              borderRadius: "6px",
-              padding: "4px 10px",
-              cursor: "pointer",
-              transition: "all 0.15s ease"
-            }}
-          >
-            <span style={{ fontSize: "14px" }}>✨</span>
-            <span>Lumen</span>
-          </button>
         </div>
 
         {/* Content Container */}
-        <div className="notion-content-container">
+        <div className="notion-content-container" style={{ height: activeView === "session" ? "calc(100vh - 45px)" : "auto", padding: activeView === "session" ? 0 : undefined }}>
           {activeView === "four-year-plan" && (
             <FourYearPlanView onStartSessionFromCourse={handleStartSessionFromCourse} />
           )}
@@ -205,11 +196,11 @@ export default function App() {
           )}
 
           {activeView === "session" && (
-            <SessionView
+            <ChatSessionView
               session={currentSession}
               track={currentTrack}
-              widgets={widgets}
               onOpenVisualizer={handleOpenVisualizer}
+              onAddWidget={(newWidget) => setWidgets((prev) => [newWidget, ...prev])}
             />
           )}
 
@@ -217,8 +208,8 @@ export default function App() {
         </div>
       </main>
 
-      {/* Right AI Assistant Panel */}
-      <LumenPanel isOpen={isLumenOpen} onClose={() => setIsLumenOpen(false)} />
+      {/* Floating Yellow Orb: Click to Start New Lumen Session */}
+      <LumenOrb onClick={() => handleStartLumenSession()} isCreating={isCreatingSession} />
 
       {/* Modal: Interactive Concept Visualizer */}
       <VisualizerModal

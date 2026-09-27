@@ -102,7 +102,7 @@ async def get_or_create_assistant(client) -> str:
         assistants = await client.list_assistants(limit=20)
         for a in assistants:
             if getattr(a, "name", "") == "Lumen Copilot":
-                _cached_assistant_id = str(a.id)
+                _cached_assistant_id = str(a.assistant_id)
                 return _cached_assistant_id
 
         # Create new assistant
@@ -112,7 +112,7 @@ async def get_or_create_assistant(client) -> str:
             system_prompt=LUMEN_SYSTEM_PROMPT,
             tools=ALL_TOOLS
         )
-        _cached_assistant_id = str(assistant.id)
+        _cached_assistant_id = str(assistant.assistant_id)
         return _cached_assistant_id
     except Exception as e:
         logger.warning(f"Could not list/create assistant on Backboard: {e}")
@@ -135,10 +135,18 @@ async def create_backboard_session(title: str = "New Study Session") -> Dict[str
         from backboard import BackboardClient
         client = BackboardClient(api_key=BACKBOARD_API_KEY)
         assistant_id = await get_or_create_assistant(client)
-        thread = await client.create_thread(assistant_id=assistant_id if assistant_id else None)
+        if not assistant_id:
+            await client.aclose()
+            return {
+                "thread_id": f"local-{uuid.uuid4()}",
+                "title": title,
+                "mode": "gemini_direct"
+            }
+
+        thread = await client.create_thread(assistant_id=assistant_id)
         await client.aclose()
         return {
-            "thread_id": str(thread.id),
+            "thread_id": str(thread.thread_id),
             "title": title,
             "assistant_id": assistant_id,
             "mode": "backboard"
@@ -189,7 +197,17 @@ async def send_chat_message(
             tools=ALL_TOOLS
         )
 
-        current_thread_id = str(getattr(response, "thread_id", thread_id))
+        messages = getattr(response, "messages", [])
+        last_msg = messages[-1] if messages and isinstance(messages[-1], dict) else {}
+        msg_status = last_msg.get("status")
+        msg_content = last_msg.get("content", "")
+
+        if msg_status == "FAILED" or ("credit" in msg_content.lower() and "reserved" in msg_content.lower()):
+            logger.info("Backboard LLM credit reserved notice, seamlessly utilizing Gemini direct.")
+            await client.aclose()
+            return await _send_message_via_gemini_fallback(thread_id, message, course_context)
+
+        current_thread_id = str(last_msg.get("thread_id", getattr(response, "thread_id", thread_id)))
 
         # Tool execution loop
         rounds = 0

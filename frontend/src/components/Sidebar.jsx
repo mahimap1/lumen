@@ -90,23 +90,6 @@ export default function Sidebar({
       <div className="sidebar-section" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
         <div className="sidebar-heading" style={{ marginBottom: "6px" }}>
           <span>SESSIONS</span>
-          <span
-            style={{
-              cursor: "pointer",
-              fontSize: "16px",
-              padding: "0 6px",
-              fontWeight: "bold",
-              lineHeight: 1,
-              borderRadius: "3px"
-            }}
-            title="Start New Study Session"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenNewSessionModal();
-            }}
-          >
-            +
-          </span>
         </div>
 
         {/* Track Tree with Nested Sessions */}
