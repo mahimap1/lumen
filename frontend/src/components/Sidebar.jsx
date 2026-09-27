@@ -6,8 +6,7 @@ export default function Sidebar({
   selectedCourseId,
   onNavigate,
   onOpenAddModal,
-  onSelectCourseSubview,
-  onOpenChat
+  onSelectCourseSubview
 }) {
   const [expandedCourses, setExpandedCourses] = useState({ [selectedCourseId]: true });
 
@@ -18,29 +17,16 @@ export default function Sidebar({
 
   return (
     <aside className="notion-sidebar">
-      {/* Workspace Header - Clicking Lumen opens the AI Action Chat */}
-      <div className="workspace-header" onClick={onOpenChat} title="Click to open Lumen AI Assistant">
+      {/* Workspace Header */}
+      <div className="workspace-header" onClick={() => onNavigate("home")} title="Lumen Workspace">
         <div className="workspace-title-row">
           <div className="workspace-avatar">L</div>
           <span>Lumen Workspace</span>
         </div>
-        <span style={{ fontSize: "11px", color: "var(--tag-blue-text)" }}>✨ Ask</span>
       </div>
 
       {/* Main Pages */}
       <div className="sidebar-section">
-        <div
-          className="nav-row"
-          onClick={onOpenChat}
-          style={{ color: "var(--tag-blue-text)" }}
-        >
-          <div className="nav-icon" style={{ color: "var(--tag-blue-text)" }}>
-            ✨
-          </div>
-          <span className="nav-title" style={{ fontWeight: 600 }}>Ask Lumen</span>
-          <span className="notion-tag blue" style={{ fontSize: "10px", padding: "1px 5px" }}>Gemini</span>
-        </div>
-
         <div
           className={`nav-row ${activeView === "home" ? "active" : ""}`}
           onClick={() => onNavigate("home")}
@@ -51,7 +37,7 @@ export default function Sidebar({
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
           </div>
-          <span className="nav-title">Home Dashboard</span>
+          <span className="nav-title">Home</span>
         </div>
 
         <div
@@ -84,10 +70,10 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Enrolled Courses with Sub-Tree */}
+      {/* School with Sub-Tree */}
       <div className="sidebar-section" style={{ flex: 1, overflowY: "auto" }}>
         <div className="sidebar-heading">
-          <span>Enrolled Courses</span>
+          <span>School</span>
           <span
             style={{ cursor: "pointer", fontSize: "14px", padding: "0 4px" }}
             title="Add Course from Syllabus"
@@ -148,14 +134,6 @@ export default function Sidebar({
         })}
       </div>
 
-      {/* Footer with DoIT Degree ROI highlight */}
-      <div className="sidebar-footer">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-          <span style={{ fontWeight: 600, color: "var(--text-main)" }}>hackUMBC 2026</span>
-          <span className="notion-tag green" style={{ fontSize: "10px" }}>DoIT Track</span>
-        </div>
-        <div>Concept Mastery ➔ $128k+ Salary ROI</div>
-      </div>
     </aside>
   );
 }

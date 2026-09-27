@@ -16,7 +16,7 @@ export default function HomeDashboard({ courses, onToggleTodo, onSelectCourse, o
   return (
     <div className="notion-screen active">
       <div className="page-icon-wrapper">🎓</div>
-      <h1 className="page-title">Home Dashboard</h1>
+      <h1 className="page-title">Home</h1>
       <p className="page-description">Overview of upcoming deadlines, active action items, and concept mastery.</p>
 
       {/* Notion Callout Box */}

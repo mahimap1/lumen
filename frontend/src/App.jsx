@@ -227,7 +227,7 @@ export default function App() {
               ✨ Lumen
             </span>
             <span>/</span>
-            {activeView === "home" && <span>Home Dashboard</span>}
+            {activeView === "home" && <span>Home</span>}
             {activeView === "course" && <span>{currentCourse?.code}</span>}
             {activeView === "note" && (
               <>
@@ -242,24 +242,6 @@ export default function App() {
             {activeView === "archive" && <span>Visual Archive</span>}
           </div>
 
-          <div className="top-actions">
-            <button
-              className="notion-btn"
-              onClick={() => setIsAddModalOpen(true)}
-              id="topbar-add-class"
-            >
-              <span>+</span>
-              <span>Add Class</span>
-            </button>
-            <button
-              className="notion-btn primary"
-              onClick={() => handleOpenVisualizer("AVL Tree Balancing", currentCourse?.code)}
-              id="topbar-visualize"
-            >
-              <span>⚡</span>
-              <span>Visualize</span>
-            </button>
-          </div>
         </div>
 
         {/* Content Container */}
