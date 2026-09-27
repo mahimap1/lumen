@@ -979,47 +979,25 @@
         <span class="nav-title">Home</span>
       </div>
 
-      <div class="nav-row" id="nav-btn-study" onclick="switchPage('study')">
-        <div class="nav-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        </div>
-        <span class="nav-title">Study Room</span>
-      </div>
-
       <div class="nav-row" id="nav-btn-catalog" onclick="switchPage('catalog')">
         <div class="nav-icon">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         </div>
-        <span class="nav-title">Visual Archive</span>
-        <span class="nav-meta-badge">4</span>
+        <span class="nav-title">Widgets</span>
+        <span class="nav-meta-badge">5</span>
       </div>
     </div>
 
-    <!-- Enrolled Courses Section -->
+    <!-- Sessions Section -->
     <div class="sidebar-section">
       <div class="sidebar-heading">
-        <span>Enrolled Courses</span>
-        <span style="cursor: pointer;">+</span>
+        <span>Sessions</span>
+        <span style="cursor: pointer; font-size: 16px; font-weight: bold;" onclick="openNotePage('avl-rotation')">+</span>
       </div>
 
-      <div class="nav-row" id="nav-btn-cmsc341" onclick="openCoursePage('cmsc341')">
-        <span style="font-size: 13px; margin-right: 4px;">📘</span>
-        <span class="nav-title">CMSC 341 Data Structures</span>
-      </div>
-
-      <div class="nav-row" id="nav-btn-math221" onclick="openCoursePage('math221')">
-        <span style="font-size: 13px; margin-right: 4px;">📐</span>
-        <span class="nav-title">MATH 221 Linear Algebra</span>
-      </div>
-
-      <div class="nav-row" id="nav-btn-entr201" onclick="openCoursePage('entr201')">
-        <span style="font-size: 13px; margin-right: 4px;">💡</span>
-        <span class="nav-title">ENTR 201 Tech Studio</span>
-      </div>
-
-      <div class="nav-row" id="nav-btn-cmsc471" onclick="openCoursePage('cmsc471')">
-        <span style="font-size: 13px; margin-right: 4px;">🤖</span>
-        <span class="nav-title">CMSC 471 Intro to AI</span>
+      <div class="nav-row active" onclick="openNotePage('session-1')">
+        <span style="font-size: 13px; margin-right: 4px;">📝</span>
+        <span class="nav-title">Session #1</span>
       </div>
     </div>
 
@@ -1601,8 +1579,7 @@ Type your thoughts, paste formulas, or click the lightbulb to visualize any conc
       const crumb = document.getElementById('breadcrumb-active');
       if (crumb) {
         if (pageKey === 'home') crumb.textContent = 'Home';
-        else if (pageKey === 'study') crumb.textContent = 'Study Room';
-        else if (pageKey === 'catalog') crumb.textContent = 'Visual Archive';
+        else if (pageKey === 'catalog') crumb.textContent = 'Widgets';
         else if (pageKey === 'course') crumb.textContent = coursesDB[currentCourseKey].code;
       }
 

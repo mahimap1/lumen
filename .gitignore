@@ -45,6 +45,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # System & IDE
+.kilo/
 .DS_Store
 .vscode/*
 !.vscode/extensions.json

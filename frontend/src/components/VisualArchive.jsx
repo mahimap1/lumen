@@ -64,9 +64,9 @@ export default function VisualArchive({ onOpenVisualizer }) {
   return (
     <div className="notion-screen active">
       <div className="page-icon-wrapper">🖼️</div>
-      <h1 className="page-title">Visual Archive & Concept Gallery</h1>
+      <h1 className="page-title">Widgets</h1>
       <p className="page-description">
-        All generated interactive minimalist widgets and 3Blue1Brown mathematical animations saved across your semester.
+        Interactive minimalist widgets and mathematical animations for your concepts.
       </p>
 
       {/* Filter Chips Bar */}

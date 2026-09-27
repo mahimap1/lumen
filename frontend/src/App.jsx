@@ -1,136 +1,50 @@
 import React, { useState } from "react";
 import Sidebar from "./components/Sidebar";
 import HomeDashboard from "./components/HomeDashboard";
-import CourseView from "./components/CourseView";
-import NoteCanvas from "./components/NoteCanvas";
-import StudyRoom from "./components/StudyRoom";
+import SessionView from "./components/SessionView";
 import VisualArchive from "./components/VisualArchive";
-import AddCourseModal from "./components/AddCourseModal";
 import VisualizerModal from "./components/VisualizerModal";
-import LightbulbFab from "./components/LightbulbFab";
-import ChatSidebar from "./components/ChatSidebar";
-import { INITIAL_COURSES } from "./data/initialData";
+import LumenPanel from "./components/LumenPanel";
+import { INITIAL_COURSES, INITIAL_SESSIONS } from "./data/initialData";
+
+const LUMEN_PANEL_WIDTH = 300;
 
 export default function App() {
-  const [courses, setCourses] = useState(INITIAL_COURSES);
-  const [activeView, setActiveView] = useState("home"); // "home" | "course" | "note" | "study" | "archive"
-  const [selectedCourseId, setSelectedCourseId] = useState("cmsc341");
-  const [selectedNoteId, setSelectedNoteId] = useState("avl-rotation");
+  const [courses] = useState(INITIAL_COURSES);
+  const [sessions, setSessions] = useState(INITIAL_SESSIONS);
+  const [activeView, setActiveView] = useState("session"); // "session" | "home" | "widgets"
+  const [selectedSessionId, setSelectedSessionId] = useState(INITIAL_SESSIONS[0]?.id || "session-1");
 
-  // Modals & Panels state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  // Lumen panel — open by default in session view
+  const [isLumenOpen, setIsLumenOpen] = useState(true);
+
   const [visualizerModal, setVisualizerModal] = useState({
     isOpen: false,
     concept: "AVL Tree Left-Right Double Rotation",
     courseCode: "CMSC 341"
   });
 
-  // Navigation handlers
-  const handleNavigate = (view, courseId = null) => {
+  const currentSession = sessions.find((s) => s.id === selectedSessionId) || sessions[0];
+
+  const handleNavigate = (view) => {
     setActiveView(view);
-    if (courseId) {
-      setSelectedCourseId(courseId);
-    }
   };
 
-  const handleSelectCourseSubview = (courseId, subview) => {
-    setSelectedCourseId(courseId);
-    if (subview === "dashboard" || subview === "notes-list") {
-      setActiveView("course");
-    } else if (subview === "study") {
-      setActiveView("study");
-    }
+  const handleSelectSession = (sessionId) => {
+    setSelectedSessionId(sessionId);
+    setActiveView("session");
+    setIsLumenOpen(true);
   };
 
-  // Todo handlers
-  const handleToggleTodo = (courseId, todoId) => {
-    setCourses((prev) => {
-      const course = prev[courseId];
-      if (!course) return prev;
-      const updatedTodos = (course.todos || []).map((t) =>
-        t.id === todoId ? { ...t, done: !t.done } : t
-      );
-      return {
-        ...prev,
-        [courseId]: { ...course, todos: updatedTodos }
-      };
-    });
+  const handleAddSession = () => {
+    const nextNum = sessions.length + 1;
+    const newId = "session-" + Date.now();
+    setSessions((prev) => [{ id: newId, icon: "📝", title: `Session #${nextNum}` }, ...prev]);
+    setSelectedSessionId(newId);
+    setActiveView("session");
+    setIsLumenOpen(true);
   };
 
-  const handleAddTodo = (courseId, newTodo) => {
-    setCourses((prev) => {
-      const course = prev[courseId];
-      if (!course) return prev;
-      return {
-        ...prev,
-        [courseId]: {
-          ...course,
-          todos: [...(course.todos || []), newTodo]
-        }
-      };
-    });
-  };
-
-  // Note handlers
-  const handleSelectNote = (courseId, noteId) => {
-    setSelectedCourseId(courseId);
-    setSelectedNoteId(noteId);
-    setActiveView("note");
-  };
-
-  const handleSaveNote = (courseId, updatedNote) => {
-    setCourses((prev) => {
-      const course = prev[courseId];
-      if (!course) return prev;
-      const updatedNotes = (course.notes || []).map((n) =>
-        n.id === updatedNote.id ? updatedNote : n
-      );
-      return {
-        ...prev,
-        [courseId]: { ...course, notes: updatedNotes }
-      };
-    });
-  };
-
-  const handleAddNote = (courseId, initialTitle, initialTopic) => {
-    const course = courses[courseId] || courses[selectedCourseId];
-    if (!course) return;
-
-    const newNoteId = "note_" + Date.now();
-    const newNote = {
-      id: newNoteId,
-      date: "Today",
-      title: initialTitle || "New Concept Synthesis",
-      topic: initialTopic || "Core Invariant",
-      visual: "1 Visual",
-      content: `# ${initialTitle || "New Concept Synthesis"}\nCourse: ${course.code}\nDate: ${new Date().toLocaleDateString()}\n\nStart capturing definitions, formulas, and questions for Lumen...`
-    };
-
-    setCourses((prev) => ({
-      ...prev,
-      [course.id]: {
-        ...course,
-        notes: [newNote, ...(course.notes || [])]
-      }
-    }));
-
-    setSelectedCourseId(course.id);
-    setSelectedNoteId(newNoteId);
-    setActiveView("note");
-  };
-
-  // Add course from syllabus handler
-  const handleAddCourse = (newCourse) => {
-    setCourses((prev) => ({
-      ...prev,
-      [newCourse.id]: newCourse
-    }));
-    setSelectedCourseId(newCourse.id);
-    setActiveView("course");
-  };
-
-  // Visualizer modal handler
   const handleOpenVisualizer = (concept, courseCode = "STEM") => {
     setVisualizerModal({
       isOpen: true,
@@ -139,157 +53,83 @@ export default function App() {
     });
   };
 
-  // AI Assistant Action Dispatcher
-  const handleExecuteAction = (action) => {
-    if (!action) return;
-
-    if (action.type === "ADD_DEADLINE") {
-      const courseId = action.course_id && courses[action.course_id] ? action.course_id : selectedCourseId;
-      const newDeadline = {
-        id: "d_" + Date.now(),
-        title: action.title || "New Assignment",
-        date: action.date || "Upcoming",
-        due: action.due || "In 7 days",
-        sub: action.sub || "Online Submission",
-        color: "var(--tag-orange-text)"
-      };
-
-      setCourses((prev) => {
-        const c = prev[courseId];
-        if (!c) return prev;
-        return {
-          ...prev,
-          [courseId]: {
-            ...c,
-            deadlines: [newDeadline, ...(c.deadlines || [])]
-          }
-        };
-      });
-
-      setSelectedCourseId(courseId);
-      setActiveView("course");
-    } else if (action.type === "ADD_TODO") {
-      const courseId = action.course_id && courses[action.course_id] ? action.course_id : selectedCourseId;
-      handleAddTodo(courseId, {
-        id: "t_" + Date.now(),
-        text: action.text || "New action item",
-        meta: action.meta || "Added by Lumen Assistant",
-        done: false
-      });
-      setSelectedCourseId(courseId);
-      setActiveView("course");
-    } else if (action.type === "START_STUDY") {
-      if (action.course_id && courses[action.course_id]) {
-        setSelectedCourseId(action.course_id);
-      }
-      setActiveView("study");
-    } else if (action.type === "VISUALIZE") {
-      const courseCode = action.course_id && courses[action.course_id] ? courses[action.course_id].code : "STEM";
-      handleOpenVisualizer(action.concept, courseCode);
-    } else if (action.type === "CREATE_NOTE") {
-      const courseId = action.course_id && courses[action.course_id] ? action.course_id : selectedCourseId;
-      handleAddNote(courseId, action.title, action.topic);
-    } else if (action.type === "NAVIGATE") {
-      if (action.course_id && courses[action.course_id]) {
-        setSelectedCourseId(action.course_id);
-      }
-      setActiveView(action.view || "home");
-    }
-  };
-
-  // Current selections
-  const currentCourse = courses[selectedCourseId] || Object.values(courses)[0];
-  const currentNote = (currentCourse?.notes || []).find((n) => n.id === selectedNoteId) || currentCourse?.notes?.[0];
+  const panelOffset = isLumenOpen ? LUMEN_PANEL_WIDTH : 0;
 
   return (
     <div className="app-shell">
-      {/* Sidebar Navigation */}
+      {/* Left Navigation Sidebar */}
       <Sidebar
-        courses={courses}
+        sessions={sessions}
         activeView={activeView}
-        selectedCourseId={selectedCourseId}
+        selectedSessionId={selectedSessionId}
         onNavigate={handleNavigate}
-        onOpenAddModal={() => setIsAddModalOpen(true)}
-        onSelectCourseSubview={handleSelectCourseSubview}
-        onOpenChat={() => setIsChatOpen(true)}
+        onAddSession={handleAddSession}
+        onSelectSession={handleSelectSession}
       />
 
-      {/* Main Content Area */}
-      <main className="notion-main">
+      {/* Main Content Area — shrinks to make room for Lumen panel */}
+      <main
+        className="notion-main"
+        style={{ marginRight: panelOffset, transition: "margin-right 0.2s ease" }}
+      >
         {/* Sticky Topbar */}
         <div className="notion-topbar">
           <div className="breadcrumbs">
-            <span
-              onClick={() => setIsChatOpen(true)}
-              style={{ fontWeight: 600, color: "var(--text-main)", cursor: "pointer" }}
-              title="Click to chat with Lumen"
-            >
-              ✨ Lumen
-            </span>
+            <span style={{ fontWeight: 600, color: "var(--text-main)" }}>✨ Lumen</span>
             <span>/</span>
             {activeView === "home" && <span>Home</span>}
-            {activeView === "course" && <span>{currentCourse?.code}</span>}
-            {activeView === "note" && (
+            {activeView === "session" && (
               <>
-                <span onClick={() => handleNavigate("course", currentCourse?.id)}>
-                  {currentCourse?.code}
+                <span onClick={() => handleNavigate("home")} style={{ cursor: "pointer" }}>
+                  Sessions
                 </span>
                 <span>/</span>
-                <span>{currentNote?.title || "Note"}</span>
+                <span>{currentSession?.title || "Session #1"}</span>
               </>
             )}
-            {activeView === "study" && <span>Study Room ({currentCourse?.code})</span>}
-            {activeView === "archive" && <span>Visual Archive</span>}
+            {(activeView === "widgets" || activeView === "archive") && <span>Widgets</span>}
           </div>
 
+          {/* Toggle Lumen panel from topbar */}
+          <button
+            onClick={() => setIsLumenOpen((prev) => !prev)}
+            title={isLumenOpen ? "Close Lumen" : "Open Lumen"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "12.5px",
+              color: isLumenOpen ? "var(--text-main)" : "var(--text-secondary)",
+              background: isLumenOpen ? "var(--bg-active)" : "transparent",
+              border: "none",
+              borderRadius: "6px",
+              padding: "4px 10px",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <span style={{ fontSize: "14px" }}>✨</span>
+            <span>Lumen</span>
+          </button>
         </div>
 
         {/* Content Container */}
         <div className="notion-content-container">
           {activeView === "home" && (
             <HomeDashboard
-              courses={courses}
-              onToggleTodo={handleToggleTodo}
-              onSelectCourse={(courseId) => handleNavigate("course", courseId)}
+              onStartSession={() => handleSelectSession(sessions[0]?.id || "session-1")}
+              onOpenWidgets={() => setActiveView("widgets")}
+            />
+          )}
+
+          {activeView === "session" && (
+            <SessionView
+              session={currentSession}
               onOpenVisualizer={handleOpenVisualizer}
             />
           )}
 
-          {activeView === "course" && (
-            <CourseView
-              course={currentCourse}
-              onToggleTodo={handleToggleTodo}
-              onAddTodo={handleAddTodo}
-              onSelectNote={handleSelectNote}
-              onStartStudy={(courseId) => {
-                setSelectedCourseId(courseId);
-                setActiveView("study");
-              }}
-              onOpenVisualizer={handleOpenVisualizer}
-              onAddNote={handleAddNote}
-              onOpenAddModal={() => setIsAddModalOpen(true)}
-            />
-          )}
-
-          {activeView === "note" && (
-            <NoteCanvas
-              course={currentCourse}
-              note={currentNote}
-              onBack={() => handleNavigate("course", currentCourse?.id)}
-              onSaveNote={handleSaveNote}
-              onOpenVisualizer={handleOpenVisualizer}
-            />
-          )}
-
-          {activeView === "study" && (
-            <StudyRoom
-              courses={courses}
-              initialCourseId={selectedCourseId}
-              onOpenVisualizer={handleOpenVisualizer}
-            />
-          )}
-
-          {activeView === "archive" && (
+          {(activeView === "widgets" || activeView === "archive") && (
             <VisualArchive
               onOpenVisualizer={handleOpenVisualizer}
             />
@@ -297,28 +137,13 @@ export default function App() {
         </div>
       </main>
 
-      {/* Floating Bottom-Right Amber Lightbulb (Opens Lumen Chat) */}
-      <LightbulbFab
-        isChatOpen={isChatOpen}
-        onToggleChat={() => setIsChatOpen((prev) => !prev)}
+      {/* Lumen Right Panel */}
+      <LumenPanel
+        isOpen={isLumenOpen}
+        onClose={() => setIsLumenOpen(false)}
       />
 
-      {/* Slide-out AI Assistant Chat Sidebar */}
-      <ChatSidebar
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        courses={courses}
-        onExecuteAction={handleExecuteAction}
-      />
-
-      {/* Modal: Add Course from Syllabus PDF */}
-      <AddCourseModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAddCourse={handleAddCourse}
-      />
-
-      {/* Modal: Dual-Engine Visualizer & Voice Player */}
+      {/* Modal: Visualizer */}
       <VisualizerModal
         isOpen={visualizerModal.isOpen}
         concept={visualizerModal.concept}

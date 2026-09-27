@@ -875,3 +875,32 @@ body {
   }
 }
 
+
+/* ===================== LUMEN RIGHT PANEL ===================== */
+.lumen-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100vh;
+  background-color: #111113;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+
+.lumen-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  shrink: 0;
+}
+
+.lumen-panel-input-area {
+  padding: 10px 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
