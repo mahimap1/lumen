@@ -6,6 +6,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from config import GEMINI_API_KEY, GEMINI_MODEL
+from services.memory_service import get_user_profile
 from services.sqlite_service import execute_campus_sql, get_database_schema_summary
 
 logger = logging.getLogger(__name__)
@@ -13,14 +14,6 @@ logger = logging.getLogger(__name__)
 # Ordered fallback chain, used only when a model is transiently unavailable.
 # Kept to currently-valid, generally-available ids (no retired models).
 _FALLBACK_MODELS = [GEMINI_MODEL, "gemini-3.6-flash", "gemini-flash-lite-latest"]
-
-DEFAULT_PROFILE: Dict[str, Any] = {
-    "name": "Mahima",
-    "university": "UMBC",
-    "year": "Junior",
-    "career_goal": "Machine Learning Engineer",
-    "focus": "STEM coursework, CS fundamentals, and ML career readiness",
-}
 
 _NO_KEY_MESSAGE = (
     "Lumen needs a Gemini API key to respond. Add GEMINI_API_KEY to backend/.env "
@@ -38,7 +31,7 @@ def _schema_summary() -> str:
 
 
 def _profile_lines(profile: Optional[Dict[str, Any]]) -> str:
-    data = {**DEFAULT_PROFILE, **(profile or {})}
+    data = profile if profile is not None else get_user_profile()
     return "\n".join(
         f"- {key.replace('_', ' ').title()}: {value}"
         for key, value in data.items()

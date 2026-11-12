@@ -10,7 +10,7 @@ from services.gemini_service import parse_syllabus_text, generate_interactive_wi
 from services.manim_service import render_or_get_manim_clip
 from services.voice_service import generate_voice_narration
 from services.career_service import get_course_career_roi
-from services.memory_service import get_student_session_context
+from services.memory_service import get_user_profile
 from services.chat_service import send_chat_message
 from services.sqlite_service import execute_campus_sql, get_database_schema_summary
 
@@ -451,15 +451,13 @@ def get_career_roi(course_id: str):
 
 
 @app.get("/api/memory/context")
-def get_memory_context(student_id: str = "alex_umbc"):
+def get_memory_context():
     """
-    Backboard Track: Persistent student learning context across sessions.
+    Returns the local structured user profile used to personalize responses.
     """
-    context = get_student_session_context(student_id)
     return {
         "status": "success",
-        "student_id": student_id,
-        "context": context
+        "context": get_user_profile()
     }
 
 

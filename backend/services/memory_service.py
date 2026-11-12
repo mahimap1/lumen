@@ -1,31 +1,39 @@
-LOCAL_MEMORY_STORE = {}
+import json
+import os
+from typing import Any, Dict
+
+from config import BASE_DIR
+
+# Local, single-user profile store. Not committed (see .gitignore).
+PROFILE_PATH = os.path.join(BASE_DIR, "data", "user_profile.json")
+
+DEFAULT_PROFILE: Dict[str, Any] = {
+    "name": "Mahima",
+    "university": "UMBC",
+    "year": "Junior",
+    "career_goal": "Machine Learning Engineer",
+    "focus": "STEM coursework, CS fundamentals, and ML career readiness",
+}
 
 
-def get_student_session_context(student_id: str = "alex_umbc") -> dict:
-    """
-    Returns the local (in-memory) student learning context for a session.
-    """
-    if student_id not in LOCAL_MEMORY_STORE:
-        LOCAL_MEMORY_STORE[student_id] = {
-            "student_name": "Mahima",
-            "year": "Junior",
-            "career_goal": "Machine Learning Engineer",
-            "enrolled_courses": ["CMSC 341", "MATH 221", "ENTR 201", "CMSC 471"],
-            "recent_focus_topics": [
-                "AVL Tree Left-Right Rotations (Struggled with child pointer reassignments)",
-                "Gram-Schmidt Orthogonalization steps"
-            ],
-            "last_active": "2026-09-24",
-            "streak_days": 4
-        }
-    return LOCAL_MEMORY_STORE[student_id]
+def get_user_profile() -> Dict[str, Any]:
+    """Return the stored profile, falling back to defaults for any missing key."""
+    profile = dict(DEFAULT_PROFILE)
+    if os.path.exists(PROFILE_PATH):
+        try:
+            with open(PROFILE_PATH, encoding="utf-8") as f:
+                stored = json.load(f)
+            profile.update({k: v for k, v in stored.items() if k in DEFAULT_PROFILE})
+        except Exception as e:
+            print(f"[profile] failed to read profile: {e}")
+    return profile
 
 
-def record_student_interaction(topic: str, difficulty_rating: int, student_id: str = "alex_umbc"):
-    """
-    Records a student topic interaction into local memory.
-    """
-    ctx = get_student_session_context(student_id)
-    if topic not in ctx.get("recent_focus_topics", []):
-        ctx.setdefault("recent_focus_topics", []).append(topic)
-    return {"status": "memory_saved", "topic": topic}
+def update_user_profile(patch: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge a patch into the profile and persist it."""
+    profile = get_user_profile()
+    profile.update({k: v for k, v in (patch or {}).items() if k in DEFAULT_PROFILE})
+    os.makedirs(os.path.dirname(PROFILE_PATH), exist_ok=True)
+    with open(PROFILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(profile, f, indent=2)
+    return profile

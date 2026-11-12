@@ -30,6 +30,7 @@ backend/.env
 backend/static/*.mp4
 *.db
 backend/data/*.db
+backend/data/user_profile.json
 
 # Node & Frontend
 node_modules/
