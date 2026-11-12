@@ -24,10 +24,10 @@ export default function App() {
 
   const [sessions, setSessions] = useState(() => {
     try {
-      const saved = localStorage.getItem("lumen_sessions_v2");
+      const saved = localStorage.getItem("lumen_sessions_v3");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {}
     return INITIAL_SESSIONS;
@@ -35,7 +35,7 @@ export default function App() {
 
   const [widgets, setWidgets] = useState(() => {
     try {
-      const saved = localStorage.getItem("lumen_widgets_v3");
+      const saved = localStorage.getItem("lumen_widgets_v4");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
@@ -44,10 +44,22 @@ export default function App() {
     return []; // Start empty — only Lumen-generated widgets are saved here
   });
 
+  // One-time cleanup: drop chat state saved by older app versions so we start fresh.
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("lumen_fresh_start_v1")) {
+        ["lumen_sessions_v2", "lumen_widgets_v2", "lumen_widgets_v3"].forEach((key) =>
+          localStorage.removeItem(key)
+        );
+        localStorage.setItem("lumen_fresh_start_v1", "1");
+      }
+    } catch (e) {}
+  }, []);
+
   // Persist state changes to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem("lumen_sessions_v2", JSON.stringify(sessions));
+      localStorage.setItem("lumen_sessions_v3", JSON.stringify(sessions));
     } catch (e) {}
   }, [sessions]);
 
@@ -59,7 +71,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem("lumen_widgets_v3", JSON.stringify(widgets));
+      localStorage.setItem("lumen_widgets_v4", JSON.stringify(widgets));
     } catch (e) {}
   }, [widgets]);
 
@@ -71,7 +83,7 @@ export default function App() {
     } catch (e) {}
     return "four-year-plan";
   });
-  const [selectedSessionId, setSelectedSessionId] = useState(INITIAL_SESSIONS[0]?.id || "cmsc313-ram");
+  const [selectedSessionId, setSelectedSessionId] = useState(INITIAL_SESSIONS[0]?.id ?? null);
 
   useEffect(() => {
     try {
@@ -107,15 +119,15 @@ export default function App() {
 
   const handleResetDemo = () => {
     try {
-      localStorage.removeItem("lumen_sessions_v2");
+      localStorage.removeItem("lumen_sessions_v3");
       localStorage.removeItem("lumen_tracks_v2");
-      localStorage.removeItem("lumen_widgets_v2");
+      localStorage.removeItem("lumen_widgets_v4");
     } catch (e) {}
     setSessions(INITIAL_SESSIONS);
     setTracks(INITIAL_TRACKS);
     setWidgets(INITIAL_WIDGETS);
-    setSelectedSessionId(INITIAL_SESSIONS[0].id);
-    setActiveView("session");
+    setSelectedSessionId(null);
+    setActiveView("four-year-plan");
   };
 
   const handleNavigate = (view) => {
