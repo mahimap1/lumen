@@ -52,8 +52,11 @@ export default function CareerDashboard() {
   const [completedCourses, setCompletedCourses] = useState(["CMSC201", "CMSC202", "CMSC341", "MATH221"]);
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const loadDashboard = () => {
+    setLoading(true);
+    setError(null);
     Promise.all([
       fetch(`${API_BASE_URL}/career/dashboard`).then((r) => r.json()),
       fetch(`${API_BASE_URL}/career/pathways`).then((r) => r.json()),
@@ -67,8 +70,13 @@ export default function CareerDashboard() {
       })
       .catch((err) => {
         console.error("Career API Error:", err);
+        setError("Couldn't load career data. Make sure the Lumen backend is running on port 8000.");
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    loadDashboard();
   }, []);
 
   // Fetch twins when major/track/internships change
@@ -81,11 +89,21 @@ export default function CareerDashboard() {
       .catch((err) => console.error("Twins fetch error:", err));
   }, [simMajor, simTrack, simInternships]);
 
-  if (loading || !dashboardData) {
+  if (loading) {
     return (
       <div style={{ padding: "50px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
         <div style={{ fontSize: "28px", marginBottom: "12px" }}>🚀</div>
         <p style={{ fontSize: "15px" }}>Loading Career Intelligence & Alumni Benchmarks...</p>
+      </div>
+    );
+  }
+
+  if (error || !dashboardData) {
+    return (
+      <div style={{ padding: "50px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: "28px", marginBottom: "12px" }}>⚠️</div>
+        <p style={{ fontSize: "15px", marginBottom: "14px" }}>{error || "Career data unavailable."}</p>
+        <button className="notion-btn primary" onClick={loadDashboard}>Retry</button>
       </div>
     );
   }
