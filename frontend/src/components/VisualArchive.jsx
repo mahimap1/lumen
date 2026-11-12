@@ -208,7 +208,19 @@ export default function VisualArchive({ widgets = INITIAL_WIDGETS, onOpenVisuali
                 {item.desc}
               </div>
 
-              <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "10px" }}>
+                <button
+                  className="notion-btn"
+                  style={{ fontSize: "11.5px", padding: "3px 8px" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenVisualizer) {
+                      onOpenVisualizer(item.concept || item.title, item.trackCode || item.course || "STEM");
+                    }
+                  }}
+                >
+                  ⚡ Open in Visualizer
+                </button>
                 <span
                   style={{
                     fontSize: "12px",

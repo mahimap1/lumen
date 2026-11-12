@@ -267,19 +267,29 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
                         <Code2 className="w-3.5 h-3.5 text-yellow-400" />
                         {widget.title}
                       </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setSandboxWidget({
-                          ...widget,
-                          html: htmlSrc,
-                          html_code: htmlSrc
-                        })}
-                        className="h-6 px-2 text-[11px] text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10 gap-1 rounded-md"
-                      >
-                        <span>Expand</span>
-                        <Maximize2 className="w-3 h-3" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onOpenVisualizer && onOpenVisualizer(widget.concept || widget.title)}
+                          className="h-6 px-2 text-[11px] text-zinc-300 hover:text-white hover:bg-white/10 rounded-md"
+                        >
+                          Visualizer
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSandboxWidget({
+                            ...widget,
+                            html: htmlSrc,
+                            html_code: htmlSrc
+                          })}
+                          className="h-6 px-2 text-[11px] text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10 gap-1 rounded-md"
+                        >
+                          <span>Expand</span>
+                          <Maximize2 className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
 
                     {widget.explanation && (
