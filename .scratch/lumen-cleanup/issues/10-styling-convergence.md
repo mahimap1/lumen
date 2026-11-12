@@ -2,7 +2,7 @@
 
 **What to build:** New and touched components use Tailwind/shadcn; the legacy stylesheet stops growing; remaining undefined CSS custom properties are resolved.
 
-**Blocked by:** 04, 05, 06
+**Blocked by:** 05, 06
 
 **Status:** ready-for-agent
 

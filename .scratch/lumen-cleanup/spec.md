@@ -188,3 +188,14 @@ than a hosted thread service.
   view), *widget* (a Gemini-generated interactive HTML artifact), *session* (a client-owned
   chat thread), *memory* (the structured user profile), *seam* (a place we exercise behaviour
   for verification).
+
+## Comments
+
+- Career ROI was **removed as a feature** (not made reachable), by product decision. Ticket 04 was
+  deleted and ticket 10's blocker updated. The Career dashboard, its candidate grapher, and the
+  four endpoints only it used (`/api/career/dashboard`, `/api/career/pathways`,
+  `/api/career/course-catalog-skills`, `/api/career/alumni-twins`) are gone. User stories 1–3 and
+  the "Career ROI" pillar references above are therefore dropped: the remaining pillars are Four
+  Year Plan, Alumni Pathways, and Widgets, with chat as the connective assistant.
+  `/api/career/candidate-list` and `/candidate-profile/{id}` are **retained** for the Alumni
+  Pathways view (ticket 05).

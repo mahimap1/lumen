@@ -4,7 +4,6 @@ import FourYearPlanView from "./components/FourYearPlanView";
 import AlumniPathwaysView from "./components/AlumniPathwaysView";
 import VisualArchive from "./components/VisualArchive";
 import VisualizerModal from "./components/VisualizerModal";
-import CareerDashboard from "./components/CareerDashboard";
 import NewSessionModal from "./components/NewSessionModal";
 import LumenOrb from "./components/LumenOrb";
 import ChatSessionView from "./components/chat/ChatSessionView";
@@ -75,11 +74,11 @@ export default function App() {
     } catch (e) {}
   }, [widgets]);
 
-  // Active views: "four-year-plan" | "alumni-pathways" | "widgets" | "session" | "career"
+  // Active views: "four-year-plan" | "alumni-pathways" | "widgets" | "session"
   const [activeView, setActiveView] = useState(() => {
     try {
       const saved = localStorage.getItem("lumen_active_view_v1");
-      if (saved) return saved;
+      if (saved && saved !== "career") return saved;
     } catch (e) {}
     return "four-year-plan";
   });
@@ -257,7 +256,6 @@ export default function App() {
               {activeView === "four-year-plan" && <span>Four Year Plan</span>}
               {activeView === "alumni-pathways" && <span>Alumni Pathways</span>}
               {activeView === "widgets" && <span>Widgets</span>}
-              {activeView === "career" && <span>Career Pathways & ROI</span>}
             </div>
           </div>
         )}
@@ -286,11 +284,7 @@ export default function App() {
           )}
 
           {activeView === "widgets" && (
-            <VisualArchive
-              widgets={widgets}
-              onOpenVisualizer={handleOpenVisualizer}
-              onDeleteWidget={(id) => setWidgets((prev) => prev.filter((w) => w.id !== id))}
-            />
+            <VisualArchive widgets={widgets} onOpenVisualizer={handleOpenVisualizer} />
           )}
 
           {activeView === "session" && (
@@ -303,8 +297,6 @@ export default function App() {
               onUpdateSession={handleUpdateSession}
             />
           )}
-
-          {activeView === "career" && <CareerDashboard />}
         </div>
       </main>
 
