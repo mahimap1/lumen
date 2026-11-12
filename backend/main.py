@@ -189,19 +189,22 @@ class SessionMessageRequest(BaseModel):
     message: str
     history: Optional[List[ChatTurn]] = None
     course_context: Optional[str] = None
+    model: Optional[str] = None
 
 
 @app.post("/api/sessions/message")
 async def send_message_to_session(req: SessionMessageRequest):
     """
     Stateless chat turn: the client sends prior history; Gemini answers, executing campus
-    SQL and/or generating an interactive widget when required.
+    SQL and/or generating an interactive widget when required. An optional per-request
+    ``model`` overrides the environment default.
     """
     history = [turn.model_dump() for turn in req.history] if req.history else None
     return await send_chat_message(
         message=req.message,
         history=history,
-        course_context=req.course_context
+        course_context=req.course_context,
+        model=req.model
     )
 
 

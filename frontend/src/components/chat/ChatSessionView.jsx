@@ -12,6 +12,7 @@ export default function ChatSessionView({
   session,
   track,
   tracks = [],
+  model = null,
   onOpenVisualizer,
   onAddWidget,
   onUpdateSession
@@ -55,7 +56,7 @@ export default function ChatSessionView({
       const courseContext = track ? `${track.code} ${track.name}` : cleanTitle;
       const history = messages.map(({ role, content }) => ({ role, content }));
 
-      const replyData = await sendSessionMessage(textToSend, history, courseContext);
+      const replyData = await sendSessionMessage(textToSend, history, courseContext, model);
 
       const assistantMsg = {
         id: `a-${Date.now()}`,

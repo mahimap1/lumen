@@ -5,9 +5,11 @@ import AlumniPathwaysView from "./components/AlumniPathwaysView";
 import VisualArchive from "./components/VisualArchive";
 import VisualizerModal from "./components/VisualizerModal";
 import NewSessionModal from "./components/NewSessionModal";
+import SettingsPane from "./components/SettingsPane";
 import LumenOrb from "./components/LumenOrb";
 import ChatSessionView from "./components/chat/ChatSessionView";
 import { INITIAL_TRACKS, INITIAL_SESSIONS, INITIAL_WIDGETS } from "./data/initialData";
+import { MODEL_STORAGE_KEY, readStoredModel } from "./lib/models";
 
 export default function App() {
   const [tracks, setTracks] = useState(() => {
@@ -74,6 +76,15 @@ export default function App() {
     } catch (e) {}
   }, [widgets]);
 
+  // Model chooser (settings pane): a cheap testing model or a stronger demo model.
+  const [model, setModel] = useState(readStoredModel);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MODEL_STORAGE_KEY, model);
+    } catch (e) {}
+  }, [model]);
+
   // Active views: "four-year-plan" | "alumni-pathways" | "widgets" | "session"
   const [activeView, setActiveView] = useState(() => {
     try {
@@ -92,6 +103,7 @@ export default function App() {
 
   // Modal states
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [newSessionModalConfig, setNewSessionModalConfig] = useState({
     initialType: "course",
     initialTrackId: ""
@@ -238,6 +250,7 @@ export default function App() {
         onOpenNewSessionModal={handleOpenNewSessionModal}
         onSelectSession={handleSelectSession}
         onResetDemo={handleResetDemo}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -296,6 +309,7 @@ export default function App() {
               session={currentSession}
               track={currentTrack}
               tracks={tracks}
+              model={model}
               onOpenVisualizer={handleOpenVisualizer}
               onAddWidget={(newWidget) => setWidgets((prev) => [newWidget, ...prev])}
               onUpdateSession={handleUpdateSession}
@@ -335,6 +349,14 @@ export default function App() {
         initialType={newSessionModalConfig.initialType}
         initialTrackId={newSessionModalConfig.initialTrackId}
         onCreateSession={handleCreateSession}
+      />
+
+      {/* Pane: Settings (model chooser) */}
+      <SettingsPane
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        model={model}
+        onModelChange={setModel}
       />
     </div>
   );

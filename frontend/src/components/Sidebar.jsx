@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Settings } from "lucide-react";
 
 // Helper to remove any emojis from session titles
 function cleanTitle(title = "") {
@@ -17,7 +18,8 @@ export default function Sidebar({
   onNavigate,
   onOpenNewSessionModal,
   onSelectSession,
-  onResetDemo
+  onResetDemo,
+  onOpenSettings
 }) {
   // Keep track of collapsed/expanded tracks (default all expanded)
   const [collapsedTracks, setCollapsedTracks] = useState({});
@@ -306,6 +308,24 @@ export default function Sidebar({
             </div>
           );
         })}
+      </div>
+
+      {/* Footer: settings affordance pinned to the bottom of the sidebar */}
+      <div
+        className="sidebar-section"
+        style={{ marginBottom: 0, marginTop: "6px", paddingTop: "8px", borderTop: "1px solid var(--border-subtle)" }}
+      >
+        <div
+          className="nav-row"
+          onClick={onOpenSettings}
+          title="Settings"
+          role="button"
+        >
+          <div className="nav-icon">
+            <Settings size={15} />
+          </div>
+          <span className="nav-title">Settings</span>
+        </div>
       </div>
 
     </aside>

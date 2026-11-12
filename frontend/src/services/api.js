@@ -142,7 +142,7 @@ export async function generateHtmlWidget(concept, courseContext = "STEM") {
 `;
 }
 
-export async function sendSessionMessage(message, history = [], courseContext = null) {
+export async function sendSessionMessage(message, history = [], courseContext = null, model = null) {
   try {
     const res = await fetch(`${API_BASE_URL}/sessions/message`, {
       method: "POST",
@@ -150,7 +150,8 @@ export async function sendSessionMessage(message, history = [], courseContext = 
       body: JSON.stringify({
         message,
         history,
-        course_context: courseContext
+        course_context: courseContext,
+        model: model || null
       })
     });
     if (res.ok) {

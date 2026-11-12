@@ -13,7 +13,15 @@ logger = logging.getLogger(__name__)
 
 # Ordered fallback chain, used only when a model is transiently unavailable.
 # Kept to currently-valid, generally-available ids (no retired models).
+# The environment default (GEMINI_MODEL) always leads the chain.
 _FALLBACK_MODELS = [GEMINI_MODEL, "gemini-3.6-flash", "gemini-flash-lite-latest"]
+
+
+def _model_chain(model: Optional[str] = None) -> List[str]:
+    """Ordered models to try: an optional per-request override first, then the default chain."""
+    chain = [model, *_FALLBACK_MODELS]
+    return list(dict.fromkeys(m for m in chain if m))
+
 
 _NO_KEY_MESSAGE = (
     "Lumen needs a Gemini API key to respond. Add GEMINI_API_KEY to backend/.env "
@@ -121,8 +129,12 @@ def _pop_block(content: str, tag: str):
     return content.replace(match.group(0), "").strip(), data
 
 
-async def _generate(prompt: str) -> str:
-    """Generate text with Gemini, falling back across models on transient errors."""
+async def _generate(prompt: str, model: Optional[str] = None) -> str:
+    """Generate text with Gemini, falling back across models on transient errors.
+
+    A per-request ``model`` override is tried first; when it (or any later) model is
+    unavailable the chain falls back to the environment default (GEMINI_MODEL).
+    """
     from google import genai
     from google.genai import types as genai_types
 
@@ -132,7 +144,7 @@ async def _generate(prompt: str) -> str:
     )
     last_err: Optional[Exception] = None
 
-    for model_name in dict.fromkeys(_FALLBACK_MODELS):
+    for model_name in _model_chain(model):
         try:
             res = await asyncio.to_thread(
                 client.models.generate_content, model=model_name, contents=prompt
@@ -148,7 +160,7 @@ async def _generate(prompt: str) -> str:
     return ""
 
 
-async def _synthesize(message: str, sql: str, rows: List[Dict[str, Any]]) -> str:
+async def _synthesize(message: str, sql: str, rows: List[Dict[str, Any]], model: Optional[str] = None) -> str:
     rows_preview = json.dumps(rows[:12], indent=2)
     prompt = f"""You are Lumen, academic copilot for UMBC.
 NEVER start with a self-introduction. Answer the student's question directly.
@@ -159,7 +171,7 @@ Query results:
 
 Provide a concise, well-formatted Markdown answer that synthesizes these results with bullet points.
 End with a short **🎯 Career Connection** section tying the topic to the student's career goal."""
-    return await _generate(prompt)
+    return await _generate(prompt, model)
 
 
 async def send_chat_message(
@@ -167,11 +179,15 @@ async def send_chat_message(
     history: Optional[List[Dict[str, str]]] = None,
     course_context: Optional[str] = None,
     profile: Optional[Dict[str, Any]] = None,
+    model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Stateless single-turn chat: the client sends prior history, the backend derives the
     reply with Gemini, executing campus SQL and/or generating an interactive widget when
     the model asks for them.
+
+    ``model`` is an optional per-request override; when omitted (or unavailable) the
+    environment default (GEMINI_MODEL) is used.
     """
     if not GEMINI_API_KEY:
         return {
@@ -185,7 +201,7 @@ async def send_chat_message(
 
     try:
         prompt = f"{_build_system_prompt(profile)}\n\n{_build_user_prompt(message, history, course_context)}"
-        content = await _generate(prompt)
+        content = await _generate(prompt, model)
 
         tool_executions: List[Dict[str, Any]] = []
         widgets: List[Dict[str, Any]] = []
@@ -205,7 +221,7 @@ async def send_chat_message(
                 "error": sql_res.get("error"),
             })
             if not content or len(content) < 30:
-                content = await _synthesize(message, sql, sql_res.get("rows", []))
+                content = await _synthesize(message, sql, sql_res.get("rows", []), model)
 
         content, widget_block = _pop_block(content, "json_widget")
         if widget_block:
