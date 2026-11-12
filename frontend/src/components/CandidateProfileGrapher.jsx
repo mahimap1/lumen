@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../services/api";
 import React, { useState, useEffect } from "react";
 
 export default function CandidateProfileGrapher() {
@@ -9,7 +10,7 @@ export default function CandidateProfileGrapher() {
 
   // Fetch candidate list on mount
   useEffect(() => {
-    fetch("http://localhost:8000/api/career/candidate-list")
+    fetch(`${API_BASE_URL}/career/candidate-list`)
       .then((r) => r.json())
       .then((res) => {
         if (res.candidates && res.candidates.length > 0) {
@@ -23,7 +24,7 @@ export default function CandidateProfileGrapher() {
   useEffect(() => {
     if (!selectedCid) return;
     setLoading(true);
-    fetch(`http://localhost:8000/api/career/candidate-profile/${selectedCid}`)
+    fetch(`${API_BASE_URL}/career/candidate-profile/${selectedCid}`)
       .then((r) => r.json())
       .then((res) => {
         if (res.status === "success") {

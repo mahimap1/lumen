@@ -52,10 +52,10 @@ export default function ChatSessionView({
     }
 
     try {
-      const threadId = session.thread_id || session.id;
       const courseContext = track ? `${track.code} ${track.name}` : cleanTitle;
+      const history = messages.map(({ role, content }) => ({ role, content }));
 
-      const replyData = await sendSessionMessage(threadId, textToSend, courseContext);
+      const replyData = await sendSessionMessage(textToSend, history, courseContext);
 
       const assistantMsg = {
         id: `a-${Date.now()}`,
@@ -63,17 +63,14 @@ export default function ChatSessionView({
         content: replyData.content || "I have analyzed your query.",
         tool_executions: replyData.tool_executions || [],
         widgets: replyData.widgets || [],
-        engine: replyData.engine || "backboard"
+        engine: replyData.engine || "gemini"
       };
 
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
 
       if (onUpdateSession) {
-        onUpdateSession(session.id, {
-          messages: finalMessages,
-          thread_id: replyData.thread_id || session.thread_id
-        });
+        onUpdateSession(session.id, { messages: finalMessages });
       }
 
       // If any widget was generated, sync it to the workspace widgets list
@@ -157,7 +154,7 @@ export default function ChatSessionView({
             id: `init-${Date.now()}`,
             role: "assistant",
             content: newGreeting,
-            engine: "backboard",
+            engine: "gemini",
             tool_executions: [],
             widgets: []
           }

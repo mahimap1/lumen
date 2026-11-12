@@ -43,7 +43,7 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
           <span>{isAssistant ? "Lumen" : "You"}</span>
           {isAssistant && message.engine && (
             <span className="text-[10px] text-zinc-500 bg-zinc-800/80 px-1.5 py-0.2 rounded border border-zinc-700/50">
-              {message.engine === "backboard" ? "Backboard Thread" : "Gemini AI"}
+              Gemini AI
             </span>
           )}
         </div>

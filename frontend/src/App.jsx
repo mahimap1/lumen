@@ -8,7 +8,6 @@ import CareerDashboard from "./components/CareerDashboard";
 import NewSessionModal from "./components/NewSessionModal";
 import LumenOrb from "./components/LumenOrb";
 import ChatSessionView from "./components/chat/ChatSessionView";
-import { createSession as createBackboardSession } from "./services/api";
 import { INITIAL_TRACKS, INITIAL_SESSIONS, INITIAL_WIDGETS } from "./data/initialData";
 
 export default function App() {
@@ -73,7 +72,6 @@ export default function App() {
     return "four-year-plan";
   });
   const [selectedSessionId, setSelectedSessionId] = useState(INITIAL_SESSIONS[0]?.id || "cmsc313-ram");
-  const [isCreatingSession, setIsCreatingSession] = useState(false);
 
   useEffect(() => {
     try {
@@ -137,7 +135,7 @@ export default function App() {
     setIsNewSessionModalOpen(true);
   };
 
-  const handleCreateSession = async ({
+  const handleCreateSession = ({
     trackId,
     trackCode,
     trackName,
@@ -147,8 +145,6 @@ export default function App() {
     title,
     isNewTrack
   }) => {
-    let finalTrackId = trackId;
-
     if (isNewTrack) {
       const newTrackObj = {
         id: trackId,
@@ -161,11 +157,10 @@ export default function App() {
       setTracks((prev) => [...prev, newTrackObj]);
     }
 
-    const tempSessionId = `sess-${Date.now()}`;
     const newSession = {
-      id: tempSessionId,
-      trackId: finalTrackId,
-      title: title,
+      id: `sess-${Date.now()}`,
+      trackId,
+      title,
       icon: trackType === "career" ? "💼" : trackType === "credential" ? "☁️" : trackType === "skill" ? "🛠️" : "⚡",
       description: `Active study session focusing on ${title} (${trackCode}).`,
       messages: [],
@@ -173,63 +168,25 @@ export default function App() {
     };
 
     setSessions((prev) => [newSession, ...prev]);
-    setSelectedSessionId(tempSessionId);
+    setSelectedSessionId(newSession.id);
     setActiveView("session");
-
-    // Asynchronously create Backboard thread and attach thread_id
-    try {
-      const bbSession = await createBackboardSession(title);
-      if (bbSession?.thread_id) {
-        setSessions((prev) =>
-          prev.map((s) =>
-            s.id === tempSessionId ? { ...s, thread_id: bbSession.thread_id } : s
-          )
-        );
-      }
-    } catch (e) {
-      console.warn("Backboard thread creation deferred to first message:", e);
-    }
   };
 
-  const handleStartLumenSession = async (defaultTrackId = null, suggestedTitle = null) => {
-    setIsCreatingSession(true);
-    try {
-      const selectedTrack = tracks.find((t) => t.id === defaultTrackId) || tracks[0];
-      const title = suggestedTitle || (selectedTrack ? `${selectedTrack.code} · ${selectedTrack.name}` : "Lumen Study Session");
-      const sessionData = await createBackboardSession(title).catch(() => ({}));
-      const newSessionId = sessionData.thread_id || `sess-${Date.now()}`;
-      const newSession = {
-        id: newSessionId,
-        thread_id: sessionData.thread_id,
-        trackId: selectedTrack?.id || tracks[0]?.id || "cmsc313",
-        title: title,
-        icon: selectedTrack?.type === "career" ? "💼" : selectedTrack?.type === "skill" ? "🛠️" : "⚡",
-        description: `Active study session focusing on ${title}`,
-        messages: [],
-        widgetIds: []
-      };
-      setSessions((prev) => [newSession, ...prev]);
-      setSelectedSessionId(newSessionId);
-      setActiveView("session");
-    } catch (err) {
-      console.error("Error creating Lumen session:", err);
-      // Fallback local session if creation fails
-      const tempId = `sess-${Date.now()}`;
-      const fallbackTrack = tracks.find((t) => t.id === defaultTrackId) || tracks[0];
-      const fallbackSession = {
-        id: tempId,
-        trackId: fallbackTrack?.id || "cmsc313",
-        title: fallbackTrack ? `${fallbackTrack.code} · ${fallbackTrack.name}` : "Lumen Study Session",
-        icon: "⚡",
-        messages: [],
-        widgetIds: []
-      };
-      setSessions((prev) => [fallbackSession, ...prev]);
-      setSelectedSessionId(tempId);
-      setActiveView("session");
-    } finally {
-      setIsCreatingSession(false);
-    }
+  const handleStartLumenSession = (defaultTrackId = null, suggestedTitle = null) => {
+    const selectedTrack = tracks.find((t) => t.id === defaultTrackId) || tracks[0];
+    const title = suggestedTitle || (selectedTrack ? `${selectedTrack.code} · ${selectedTrack.name}` : "Lumen Study Session");
+    const newSession = {
+      id: `sess-${Date.now()}`,
+      trackId: selectedTrack?.id || tracks[0]?.id || "cmsc313",
+      title,
+      icon: selectedTrack?.type === "career" ? "💼" : selectedTrack?.type === "skill" ? "🛠️" : "⚡",
+      description: `Active study session focusing on ${title}`,
+      messages: [],
+      widgetIds: []
+    };
+    setSessions((prev) => [newSession, ...prev]);
+    setSelectedSessionId(newSession.id);
+    setActiveView("session");
   };
 
   const handleStartSessionFromCourse = (courseCode) => {
@@ -347,7 +304,6 @@ export default function App() {
             setActiveView("session");
           }
         }}
-        isCreating={isCreatingSession}
         isHidden={activeView === "session"}
       />
 

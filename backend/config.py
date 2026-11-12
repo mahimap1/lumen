@@ -6,8 +6,8 @@ env_path = os.path.join(BASE_DIR, ".env")
 load_dotenv(dotenv_path=env_path)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
-BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY", "")
 
 # Directory paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

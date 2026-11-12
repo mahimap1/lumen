@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../services/api";
 import React, { useState, useEffect } from "react";
 import CandidateProfileGrapher from "./CandidateProfileGrapher";
 
@@ -54,9 +55,9 @@ export default function CareerDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch("http://localhost:8000/api/career/dashboard").then((r) => r.json()),
-      fetch("http://localhost:8000/api/career/pathways").then((r) => r.json()),
-      fetch("http://localhost:8000/api/career/course-catalog-skills").then((r) => r.json()),
+      fetch(`${API_BASE_URL}/career/dashboard`).then((r) => r.json()),
+      fetch(`${API_BASE_URL}/career/pathways`).then((r) => r.json()),
+      fetch(`${API_BASE_URL}/career/course-catalog-skills`).then((r) => r.json()),
     ])
       .then(([dash, path, catalog]) => {
         setDashboardData(dash);
@@ -72,7 +73,7 @@ export default function CareerDashboard() {
 
   // Fetch twins when major/track/internships change
   useEffect(() => {
-    fetch(`http://localhost:8000/api/career/alumni-twins?major=${encodeURIComponent(simMajor)}&track=${encodeURIComponent(simTrack)}&min_internships=${simInternships}`)
+    fetch(`${API_BASE_URL}/career/alumni-twins?major=${encodeURIComponent(simMajor)}&track=${encodeURIComponent(simTrack)}&min_internships=${simInternships}`)
       .then((r) => r.json())
       .then((res) => {
         if (res.twins) setTwins(res.twins);
