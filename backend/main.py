@@ -1,18 +1,12 @@
-import os
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List
 
 from config import STATIC_DIR
-from services.gemini_service import parse_syllabus_text, generate_interactive_widget_html, consult_lumen_inline
-from services.manim_service import render_or_get_manim_clip
-from services.voice_service import generate_voice_narration
-from services.career_service import get_course_career_roi
-from services.memory_service import get_user_profile
+from services.gemini_service import generate_interactive_widget_html
 from services.chat_service import send_chat_message
-from services.sqlite_service import execute_campus_sql, get_database_schema_summary
 
 app = FastAPI(
     title="Lumen API",
@@ -39,50 +33,9 @@ class ConceptVisualRequest(BaseModel):
     engine: Optional[str] = "html"  # "html" or "manim"
 
 
-class NoteConsultRequest(BaseModel):
-    selected_text: str
-    course_context: Optional[str] = "CMSC 341 Data Structures"
-
-
-class VoiceNarrateRequest(BaseModel):
-    text: str
-
-
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "app": "Lumen AI Tutor Engine", "hackathon": "hackUMBC 2026"}
-
-
-@app.post("/api/syllabus/parse")
-async def parse_syllabus(
-    file: Optional[UploadFile] = File(None),
-    raw_text: Optional[str] = Form(None)
-):
-    """
-    Parses a syllabus PDF or raw text into structured deadlines, todos, and weekly notes.
-    """
-    text_content = ""
-    if file:
-        try:
-            import pypdf
-            reader = pypdf.PdfReader(file.file)
-            for page in reader.pages:
-                text_content += page.extract_text() or ""
-        except Exception as e:
-            print(f"PDF extract error, using filename/fallback: {e}")
-            text_content = file.filename or "Syllabus File"
-
-    if not text_content and raw_text:
-        text_content = raw_text
-
-    if not text_content:
-        text_content = "CMSC 341 Data Structures Syllabus Fall 2026"
-
-    parsed_course = parse_syllabus_text(text_content)
-    return {
-        "status": "success",
-        "data": parsed_course
-    }
 
 
 @app.post("/api/visualize/html")
@@ -96,41 +49,6 @@ def generate_html_widget(req: ConceptVisualRequest):
         "concept": req.concept,
         "engine": "html_svg",
         "html": widget_html
-    }
-
-
-@app.post("/api/visualize/manim")
-def generate_manim_clip(req: ConceptVisualRequest):
-    """
-    Generates or fetches a 3b1b Manim mathematical animation clip.
-    """
-    manim_data = render_or_get_manim_clip(req.concept)
-    return {
-        "status": "success",
-        "concept": req.concept,
-        "engine": "manim",
-        "data": manim_data
-    }
-
-
-@app.post("/api/voice/narrate")
-def narrate_concept(req: VoiceNarrateRequest):
-    """
-    Synthesizes natural ElevenLabs voice audio narration for a concept.
-    """
-    narration_result = generate_voice_narration(req.text)
-    return narration_result
-
-
-@app.post("/api/notes/consult")
-def consult_lumen(req: NoteConsultRequest):
-    """
-    Inline Lumen consultation for selected note text (definition, intuition, example).
-    """
-    consult_result = consult_lumen_inline(req.selected_text, req.course_context)
-    return {
-        "status": "success",
-        "data": consult_result
     }
 
 
@@ -436,31 +354,6 @@ def get_candidate_profile(campus_id: str):
 
 
 
-@app.get("/api/career/roi/{course_id}")
-def get_career_roi(course_id: str):
-    """
-    DoIT Track: Career Pathways & Degree ROI data.
-    """
-    roi_data = get_course_career_roi(course_id)
-    return {
-        "status": "success",
-        "course_id": course_id,
-        "data": roi_data
-    }
-
-
-
-@app.get("/api/memory/context")
-def get_memory_context():
-    """
-    Returns the local structured user profile used to personalize responses.
-    """
-    return {
-        "status": "success",
-        "context": get_user_profile()
-    }
-
-
 class ChatTurn(BaseModel):
     role: str
     content: str
@@ -470,10 +363,6 @@ class SessionMessageRequest(BaseModel):
     message: str
     history: Optional[List[ChatTurn]] = None
     course_context: Optional[str] = None
-
-
-class DatabaseQueryRequest(BaseModel):
-    query: str
 
 
 @app.post("/api/sessions/message")
@@ -488,27 +377,6 @@ async def send_message_to_session(req: SessionMessageRequest):
         history=history,
         course_context=req.course_context
     )
-
-
-@app.get("/api/database/schema")
-def get_database_schema():
-    """
-    Returns schema summary of campus.db tables and columns.
-    """
-    schema = get_database_schema_summary()
-    return {
-        "status": "success",
-        "schema": schema
-    }
-
-
-@app.post("/api/database/query")
-def run_campus_query(req: DatabaseQueryRequest):
-    """
-    Safely executes a read-only SELECT query against the campus dataset.
-    """
-    res = execute_campus_sql(req.query)
-    return res
 
 
 if __name__ == "__main__":
