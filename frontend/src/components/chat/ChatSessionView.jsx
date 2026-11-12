@@ -4,7 +4,7 @@ import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Trash2 } from "lucide-react";
 import { sendSessionMessage } from "@/services/api";
 import { LumenOrbSphere } from "../LumenOrb";
 
@@ -15,7 +15,8 @@ export default function ChatSessionView({
   model = null,
   onOpenVisualizer,
   onAddWidget,
-  onUpdateSession
+  onUpdateSession,
+  onDeleteSession
 }) {
   // Session messages are the single source of truth; the parent owns their persistence,
   // so local copies cannot drift out of sync with the saved session.
@@ -117,6 +118,13 @@ export default function ChatSessionView({
     ];
     if (onUpdateSession) {
       onUpdateSession(session.id, { messages: cleared });
+    }
+  };
+
+  const handleDeleteSession = () => {
+    if (!session || !onDeleteSession) return;
+    if (window.confirm(`Delete "${cleanTitle}"? This cannot be undone.`)) {
+      onDeleteSession(session.id);
     }
   };
 
@@ -223,7 +231,7 @@ export default function ChatSessionView({
           )}
         </div>
 
-        {/* Right: Reset Action */}
+        {/* Right: Reset & Delete Actions */}
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -235,6 +243,18 @@ export default function ChatSessionView({
             <RotateCcw className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Reset</span>
           </Button>
+          {onDeleteSession && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleDeleteSession}
+              className="text-xs text-zinc-400 hover:text-red-400 hover:bg-red-500/10 gap-1.5 h-7 px-2.5 rounded-lg"
+              title="Delete this chat"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Delete</span>
+            </Button>
+          )}
         </div>
       </header>
 

@@ -128,6 +128,18 @@ export default function App() {
     );
   };
 
+  const handleDeleteSession = (sessionId) => {
+    const remaining = sessions.filter((s) => s.id !== sessionId);
+    setSessions(remaining);
+    if (selectedSessionId === sessionId) {
+      const next = remaining[0]?.id ?? null;
+      setSelectedSessionId(next);
+      if (!next) {
+        setActiveView("four-year-plan");
+      }
+    }
+  };
+
   const handleResetDemo = () => {
     try {
       localStorage.removeItem("lumen_sessions_v3");
@@ -314,6 +326,7 @@ export default function App() {
               onOpenVisualizer={handleOpenVisualizer}
               onAddWidget={(newWidget) => setWidgets((prev) => [newWidget, ...prev])}
               onUpdateSession={handleUpdateSession}
+              onDeleteSession={handleDeleteSession}
             />
           )}
         </div>
