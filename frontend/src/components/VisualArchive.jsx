@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { INITIAL_WIDGETS } from "../data/initialData";
 import WidgetSandboxModal from "./WidgetSandboxModal";
 
-export default function VisualArchive({ widgets = INITIAL_WIDGETS, onOpenVisualizer }) {
+export default function VisualArchive({ widgets = INITIAL_WIDGETS, onOpenVisualizer, onDeleteWidget }) {
   const [selectedType, setSelectedType] = useState("all"); // "all" | "course" | "credential" | "skill"
   const [selectedTrack, setSelectedTrack] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -198,9 +198,34 @@ export default function VisualArchive({ widgets = INITIAL_WIDGETS, onOpenVisuali
                 <span className={`notion-tag ${item.trackTag || "blue"}`}>
                   {item.trackCode || item.course}
                 </span>
-                <span className="notion-tag gray" style={{ fontSize: "11px" }}>
-                  {item.engine}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span className="notion-tag gray" style={{ fontSize: "11px" }}>
+                    {item.engine}
+                  </span>
+                  {onDeleteWidget && (
+                    <button
+                      title="Delete widget"
+                      aria-label={`Delete ${item.title}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Delete "${item.title}"?`)) {
+                          onDeleteWidget(item.id);
+                        }
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-tertiary)",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        lineHeight: 1,
+                        padding: "0 2px"
+                      }}
+                    >
+                      🗑
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="gallery-title">{item.title}</div>

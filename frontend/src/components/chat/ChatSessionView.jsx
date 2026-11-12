@@ -88,6 +88,7 @@ export default function ChatSessionView({
             trackTag: track?.tagColor || "blue",
             trackType: track?.type || "course",
             engine: "Interactive HTML/CSS/JS",
+            sessionId: session.id,
             createdAt: Date.now()
           });
         });
