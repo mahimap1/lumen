@@ -10,9 +10,9 @@ from services.sqlite_service import execute_campus_sql, get_database_schema_summ
 
 logger = logging.getLogger(__name__)
 
-# Fallbacks are only used on transient errors / rate limits, and are kept to
-# model ids that are currently valid.
-_FALLBACK_MODELS = [GEMINI_MODEL, "gemini-3.5-flash-lite", "gemini-3.8-flash"]
+# Ordered fallback chain, used only when a model is transiently unavailable.
+# Kept to currently-valid, generally-available ids (no retired models).
+_FALLBACK_MODELS = [GEMINI_MODEL, "gemini-3.6-flash", "gemini-flash-lite-latest"]
 
 DEFAULT_PROFILE: Dict[str, Any] = {
     "name": "Mahima",
@@ -131,25 +131,24 @@ def _pop_block(content: str, tag: str):
 async def _generate(prompt: str) -> str:
     """Generate text with Gemini, falling back across models on transient errors."""
     from google import genai
+    from google.genai import types as genai_types
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = genai.Client(
+        api_key=GEMINI_API_KEY,
+        http_options=genai_types.HttpOptions(timeout=45_000),
+    )
     last_err: Optional[Exception] = None
 
     for model_name in dict.fromkeys(_FALLBACK_MODELS):
-        for _ in range(2):
-            try:
-                res = await asyncio.to_thread(
-                    client.models.generate_content, model=model_name, contents=prompt
-                )
-                if res and res.text:
-                    return res.text
-            except Exception as e:
-                last_err = e
-                err = str(e).lower()
-                if any(token in err for token in ("503", "unavailable", "demand")):
-                    await asyncio.sleep(1)
-                    continue
-                break
+        try:
+            res = await asyncio.to_thread(
+                client.models.generate_content, model=model_name, contents=prompt
+            )
+            if res and res.text:
+                return res.text
+        except Exception as e:
+            last_err = e
+            logger.warning("Model %s failed: %s", model_name, str(e)[:160])
 
     if last_err:
         raise last_err
@@ -238,7 +237,7 @@ async def send_chat_message(
         logger.error(f"Gemini chat error: {e}", exc_info=True)
         return {
             "role": "assistant",
-            "content": f"I encountered an error processing your request: {e}",
+            "content": "Lumen couldn't reach the AI model just now — the provider is busy. Please try again in a moment.",
             "tool_executions": [],
             "widgets": [],
             "status": "error",
