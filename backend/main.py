@@ -71,6 +71,7 @@ def get_candidate_list():
         candidates = query_db("""
             SELECT 
                 a.campus_id, a.major, a.track, a.degree_level, a.final_gpa, 
+                a.graduation_term, a.months_to_first_job,
                 a.internship_count, a.credential_count,
                 emp.job_title, emp.employer, emp.annual_salary_usd
             FROM alumni a

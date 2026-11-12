@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import ALUMNI_PROFILES from "../data/alumniPathwaysData.json";
+import React, { useState, useEffect, useMemo } from "react";
+import { API_BASE_URL } from "../services/api";
 
 export default function AlumniPathwaysView({ onSelectCredentialOrSkill }) {
   // Filters
@@ -7,33 +7,84 @@ export default function AlumniPathwaysView({ onSelectCredentialOrSkill }) {
   const [selectedCampusId, setSelectedCampusId] = useState("All");
   const [highlightCourse, setHighlightCourse] = useState(null);
 
+  const [candidates, setCandidates] = useState([]);
+  const [activeProfile, setActiveProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load the curated candidate list once (backend is the single source of truth)
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/career/candidate-list`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (cancelled) return;
+        const rows = (res.candidates || []).map((c) => ({
+          alumnus: {
+            campus_id: c.campus_id,
+            major: c.major,
+            track: c.track,
+            degree_level: c.degree_level,
+            final_gpa: c.final_gpa,
+            graduation_term: c.graduation_term,
+            months_to_first_job: c.months_to_first_job
+          },
+          employment: [
+            { job_title: c.job_title, employer: c.employer, annual_salary_usd: c.annual_salary_usd }
+          ]
+        }));
+        setCandidates(rows);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Extract distinct roles for dropdown filter
   const distinctRoles = useMemo(() => {
     const roles = new Set();
-    ALUMNI_PROFILES.forEach((p) => {
-      const title = p.employment?.[0]?.job_title || p.alumnus?.first_job_title;
+    candidates.forEach((p) => {
+      const title = p.employment?.[0]?.job_title;
       if (title) roles.add(title);
     });
     return Array.from(roles).sort();
-  }, []);
+  }, [candidates]);
 
   // Filter candidates by role
   const filteredCandidates = useMemo(() => {
-    return ALUMNI_PROFILES.filter((p) => {
-      const title = p.employment?.[0]?.job_title || p.alumnus?.first_job_title;
+    return candidates.filter((p) => {
+      const title = p.employment?.[0]?.job_title;
       if (selectedRole !== "All" && title !== selectedRole) return false;
       return true;
     });
-  }, [selectedRole]);
+  }, [candidates, selectedRole]);
 
-  // Determine active displayed alumnus
-  const activeProfile = useMemo(() => {
-    if (selectedCampusId !== "All") {
-      const found = ALUMNI_PROFILES.find((p) => p.alumnus.campus_id === selectedCampusId);
-      if (found) return found;
-    }
-    return filteredCandidates[0] || ALUMNI_PROFILES[0];
-  }, [selectedCampusId, filteredCandidates]);
+  const activeCampusId =
+    selectedCampusId !== "All"
+      ? selectedCampusId
+      : filteredCandidates[0]?.alumnus?.campus_id || candidates[0]?.alumnus?.campus_id || null;
+
+  // Load the full profile (timeline, experiences, employment) for the selected candidate
+  useEffect(() => {
+    if (!activeCampusId) return;
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/career/candidate-profile/${activeCampusId}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (cancelled || res.status !== "success") return;
+        setActiveProfile({
+          alumnus: res.alumnus,
+          employment: res.employment || [],
+          transcripts: (res.timeline || []).flatMap((t) => t.courses || []),
+          experiences: (res.timeline || []).flatMap((t) => t.experiences || [])
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCampusId]);
 
   const alumnus = activeProfile?.alumnus;
   const employment = activeProfile?.employment || [];
@@ -85,9 +136,26 @@ export default function AlumniPathwaysView({ onSelectCredentialOrSkill }) {
     });
   }
 
-  // Aggregate metrics
-  const medianSalary = 128500;
-  const avgMonthsToJob = 0.8;
+  // Aggregate metrics derived from the candidate list
+  const salaries = candidates
+    .map((c) => Number(c.employment?.[0]?.annual_salary_usd))
+    .filter((n) => !isNaN(n) && n > 0)
+    .sort((a, b) => a - b);
+  const medianSalary = salaries.length ? salaries[Math.floor(salaries.length / 2)] : 0;
+  const months = candidates
+    .map((c) => Number(c.alumnus?.months_to_first_job))
+    .filter((n) => !isNaN(n) && n > 0);
+  const avgMonthsToJob = months.length
+    ? (months.reduce((a, b) => a + b, 0) / months.length).toFixed(1)
+    : "—";
+
+  if (loading) {
+    return (
+      <div className="notion-screen active" style={{ padding: "48px", color: "var(--text-secondary)" }}>
+        Loading alumni pathways…
+      </div>
+    );
+  }
 
   return (
     <div className="notion-screen active" style={{ maxWidth: "100%", width: "100%", paddingBottom: "48px" }}>
@@ -137,7 +205,7 @@ export default function AlumniPathwaysView({ onSelectCredentialOrSkill }) {
               Curated Pathway Profiles
             </div>
             <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-main)", marginTop: "2px" }}>
-              {ALUMNI_PROFILES.length} Verified Records <span style={{ fontSize: "11.5px", color: "var(--text-secondary)", fontWeight: 500 }}>across {distinctRoles.length} roles</span>
+              {candidates.length} Verified Records <span style={{ fontSize: "11.5px", color: "var(--text-secondary)", fontWeight: 500 }}>across {distinctRoles.length} roles</span>
             </div>
           </div>
         </div>
@@ -197,7 +265,7 @@ export default function AlumniPathwaysView({ onSelectCredentialOrSkill }) {
               Alumnus ID:
             </span>
             <select
-              value={alumnus?.campus_id || ""}
+              value={activeCampusId || ""}
               onChange={(e) => setSelectedCampusId(e.target.value)}
               style={{
                 padding: "6px 12px",
