@@ -14,11 +14,16 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for local Vite dev server and production
+# CORS is limited to the local Vite dev server; credentials are not used, so they stay off.
+LOCAL_DEV_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=LOCAL_DEV_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

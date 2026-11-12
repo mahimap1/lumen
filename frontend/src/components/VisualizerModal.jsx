@@ -62,9 +62,11 @@ export default function VisualizerModal({
           ) : (
             <div className="modal-stage-frame" style={{ minHeight: "280px", position: "relative" }}>
               {htmlContent ? (
-                <div
-                  style={{ width: "100%", height: "100%" }}
-                  dangerouslySetInnerHTML={{ __html: htmlContent }}
+                <iframe
+                  title={`Visualizer: ${concept}`}
+                  srcDoc={htmlContent}
+                  sandbox="allow-scripts"
+                  style={{ width: "100%", height: "320px", border: "none", display: "block" }}
                 />
               ) : (
                 <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>

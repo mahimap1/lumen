@@ -151,7 +151,7 @@ def _fallback_syllabus_data(raw_text: str) -> dict:
         ],
         "notes": [
             {"id": "avl-rotation", "date": "Sep 24, 2026", "title": "AVL Tree Balancing & Rotations", "topic": "Self-Balancing Invariants // O(log N)", "visual": "1 Visual"},
-            {"id": "graph-traversal", "date": "Sep 21, 2026", "title": "Graph Traversal: BFS vs DFS", "topic: ": "Queue vs Recursion Stack Invariants", "visual": "2 Visuals"},
+            {"id": "graph-traversal", "date": "Sep 21, 2026", "title": "Graph Traversal: BFS vs DFS", "topic": "Queue vs Recursion Stack Invariants", "visual": "2 Visuals"},
             {"id": "hash-collision", "date": "Sep 15, 2026", "title": "Hash Tables & Quadratic Probing", "topic": "Load Factor α < 0.5 & Clustering", "visual": "1 Visual"}
         ]
     }

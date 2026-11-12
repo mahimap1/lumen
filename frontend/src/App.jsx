@@ -158,6 +158,20 @@ export default function App() {
     setIsNewSessionModalOpen(true);
   };
 
+  // Single session-creation path: one id format, one place that prepends and selects it.
+  const createSession = (sessionData) => {
+    const newSession = {
+      id: `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      messages: [],
+      widgetIds: [],
+      ...sessionData
+    };
+    setSessions((prev) => [newSession, ...prev]);
+    setSelectedSessionId(newSession.id);
+    setActiveView("session");
+    return newSession;
+  };
+
   const handleCreateSession = ({
     trackId,
     trackCode,
@@ -180,36 +194,23 @@ export default function App() {
       setTracks((prev) => [...prev, newTrackObj]);
     }
 
-    const newSession = {
-      id: `sess-${Date.now()}`,
+    createSession({
       trackId,
       title,
       icon: trackType === "career" ? "💼" : trackType === "credential" ? "☁️" : trackType === "skill" ? "🛠️" : "⚡",
-      description: `Active study session focusing on ${title} (${trackCode}).`,
-      messages: [],
-      widgetIds: []
-    };
-
-    setSessions((prev) => [newSession, ...prev]);
-    setSelectedSessionId(newSession.id);
-    setActiveView("session");
+      description: `Active study session focusing on ${title} (${trackCode}).`
+    });
   };
 
   const handleStartLumenSession = (defaultTrackId = null, suggestedTitle = null) => {
     const selectedTrack = tracks.find((t) => t.id === defaultTrackId) || tracks[0];
     const title = suggestedTitle || (selectedTrack ? `${selectedTrack.code} · ${selectedTrack.name}` : "Lumen Study Session");
-    const newSession = {
-      id: `sess-${Date.now()}`,
+    createSession({
       trackId: selectedTrack?.id || tracks[0]?.id || "cmsc313",
       title,
       icon: selectedTrack?.type === "career" ? "💼" : selectedTrack?.type === "skill" ? "🛠️" : "⚡",
-      description: `Active study session focusing on ${title}`,
-      messages: [],
-      widgetIds: []
-    };
-    setSessions((prev) => [newSession, ...prev]);
-    setSelectedSessionId(newSession.id);
-    setActiveView("session");
+      description: `Active study session focusing on ${title}`
+    });
   };
 
   const handleStartSessionFromCourse = (courseCode) => {

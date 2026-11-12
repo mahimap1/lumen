@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 /**
  * WidgetSandboxModal
@@ -7,36 +7,10 @@ import React, { useEffect, useRef, useState } from "react";
  * run in isolation without affecting the parent app.
  */
 export default function WidgetSandboxModal({ isOpen, widget, onClose }) {
-  const iframeRef = useRef(null);
-  const [isReady, setIsReady] = useState(false);
-
-  // Inject the widget HTML into the iframe when the modal opens
-  useEffect(() => {
-    if (!isOpen || !widget) {
-      setIsReady(false);
-      return;
-    }
-
-    setIsReady(false);
-    // Small delay so the iframe has time to mount
-    const t = setTimeout(() => {
-      const iframe = iframeRef.current;
-      if (!iframe) return;
-
-      const htmlContent = widget.html || widget.html_code || "";
-
-      // Write directly into the iframe document so scripts execute correctly
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (doc) {
-        doc.open();
-        doc.write(htmlContent);
-        doc.close();
-      }
-      setIsReady(true);
-    }, 60);
-
-    return () => clearTimeout(t);
-  }, [isOpen, widget]);
+  const [loadedWidgetKey, setLoadedWidgetKey] = useState(null);
+  const htmlContent = widget?.html || widget?.html_code || "";
+  const widgetKey = widget?.id || widget?.title || null;
+  const isReady = widgetKey !== null && loadedWidgetKey === widgetKey;
 
   // Close on Escape
   useEffect(() => {
@@ -180,9 +154,10 @@ export default function WidgetSandboxModal({ isOpen, widget, onClose }) {
           )}
 
           <iframe
-            ref={iframeRef}
             title={widget.title}
-            sandbox="allow-scripts allow-same-origin"
+            srcDoc={htmlContent}
+            onLoad={() => setLoadedWidgetKey(widgetKey)}
+            sandbox="allow-scripts"
             style={{
               width: "100%",
               height: "100%",

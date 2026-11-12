@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import MessageScroller from "./MessageScroller";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
@@ -17,7 +17,9 @@ export default function ChatSessionView({
   onAddWidget,
   onUpdateSession
 }) {
-  const [messages, setMessages] = useState([]);
+  // Session messages are the single source of truth; the parent owns their persistence,
+  // so local copies cannot drift out of sync with the saved session.
+  const messages = session?.messages ?? [];
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -25,12 +27,6 @@ export default function ChatSessionView({
   const cleanTitle = (session?.title || "Study Session")
     .replace(/^[\p{Emoji}\u2000-\u3300\s]+/gu, "")
     .trim() || session?.title || "Study Session";
-
-  // Restore session messages (no auto-greeting — start fresh)
-  useEffect(() => {
-    if (!session) return;
-    setMessages(session.messages && session.messages.length > 0 ? session.messages : []);
-  }, [session?.id]);
 
   const handleSend = async (overrideText = null) => {
     const textToSend = (overrideText || input).trim();
@@ -44,7 +40,6 @@ export default function ChatSessionView({
     };
 
     const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
     setInput("");
     setIsLoading(true);
 
@@ -68,7 +63,6 @@ export default function ChatSessionView({
       };
 
       const finalMessages = [...newMessages, assistantMsg];
-      setMessages(finalMessages);
 
       if (onUpdateSession) {
         onUpdateSession(session.id, { messages: finalMessages });
@@ -103,7 +97,6 @@ export default function ChatSessionView({
         widgets: []
       };
       const finalErrMessages = [...newMessages, errMsg];
-      setMessages(finalErrMessages);
       if (onUpdateSession) {
         onUpdateSession(session.id, { messages: finalErrMessages });
       }
@@ -122,7 +115,6 @@ export default function ChatSessionView({
         widgets: []
       }
     ];
-    setMessages(cleared);
     if (onUpdateSession) {
       onUpdateSession(session.id, { messages: cleared });
     }
@@ -168,10 +160,6 @@ export default function ChatSessionView({
       title: newTitle,
       messages: updatedMessages
     });
-
-    if (messages.length <= 1) {
-      setMessages(updatedMessages);
-    }
   };
 
   const handleSelectCategory = (catKey) => {
