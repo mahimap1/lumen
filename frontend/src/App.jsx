@@ -286,7 +286,11 @@ export default function App() {
           )}
 
           {activeView === "widgets" && (
-            <VisualArchive widgets={widgets} onOpenVisualizer={handleOpenVisualizer} />
+            <VisualArchive
+              widgets={widgets}
+              onOpenVisualizer={handleOpenVisualizer}
+              onDeleteWidget={(id) => setWidgets((prev) => prev.filter((w) => w.id !== id))}
+            />
           )}
 
           {activeView === "session" && (
