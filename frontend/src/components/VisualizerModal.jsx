@@ -28,48 +28,53 @@ export default function VisualizerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="notion-modal-overlay" onClick={onClose}>
-      <div className="notion-modal-card" style={{ width: "780px" }} onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-5 backdrop-blur-[2px]"
+      onClick={onClose}
+    >
+      <div
+        className="flex w-[780px] max-w-[95vw] flex-col overflow-hidden rounded-lg border border-white/[0.09] bg-[#202020] shadow-[0_16px_40px_rgba(0,0,0,0.6)]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="notion-modal-head">
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ color: "#F5A623" }}>⚡</span>
+        <div className="flex items-center justify-between border-b border-white/[0.09] px-[18px] py-3 text-[13px] font-semibold">
+          <div className="flex items-center gap-2">
+            <span className="text-[#f5a623]">⚡</span>
             <span>Lumen Visualizer: {concept}</span>
-            <span className="notion-tag blue" style={{ fontSize: "11px", marginLeft: "4px" }}>
+            <span className="ml-1 inline-flex items-center rounded-[3px] bg-[color:var(--tag-blue-bg)] px-[7px] py-[2px] text-[11px] font-medium leading-[1.3] text-[color:var(--tag-blue-text)]">
               {courseCode}
             </span>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            style={{ background: "transparent", border: "none", color: "var(--text-tertiary)", cursor: "pointer", fontSize: "16px" }}
+            className="cursor-pointer border-0 bg-transparent text-base text-[color:var(--text-tertiary)] transition-colors hover:text-[color:var(--text-main)]"
           >
             ✕
           </button>
         </div>
 
         {/* Body */}
-        <div className="notion-modal-body">
+        <div className="flex flex-col gap-4 p-5">
           {isLoading ? (
-            <div className="modal-stage-frame">
-              <div style={{ fontSize: "32px", marginBottom: "12px", animation: "spin 1.5s linear infinite" }}>
-                ⚙️
-              </div>
-              <div style={{ fontSize: "13.5px", color: "var(--text-main)" }}>
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-md border border-white/[0.09] bg-[color:var(--bg-main)] p-5">
+              <div className="mb-3 animate-spin text-[32px]">⚙️</div>
+              <div className="text-[13.5px] text-[color:var(--text-main)]">
                 Generating visual explanation for {concept}...
               </div>
             </div>
           ) : (
-            <div className="modal-stage-frame" style={{ minHeight: "280px", position: "relative" }}>
+            <div className="relative flex min-h-[280px] flex-col items-center justify-center rounded-md border border-white/[0.09] bg-[color:var(--bg-main)] p-5">
               {htmlContent ? (
                 <iframe
                   title={`Visualizer: ${concept}`}
                   srcDoc={htmlContent}
                   sandbox="allow-scripts"
-                  style={{ width: "100%", height: "320px", border: "none", display: "block" }}
+                  className="block h-[320px] w-full border-0"
                 />
               ) : (
-                <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                <div className="text-[13px] text-[color:var(--text-secondary)]">
                   No visualization available for {concept}.
                 </div>
               )}
