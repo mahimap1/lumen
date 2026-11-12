@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Sparkles } from "lucide-react";
 
 /**
  * Mascot Lumen Orb implementation matching the requested animated design:
