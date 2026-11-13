@@ -7,6 +7,7 @@ from typing import Optional, List
 from config import STATIC_DIR
 from services.gemini_service import generate_interactive_widget_html
 from services.chat_service import send_chat_message
+from services.memory_service import DEFAULT_PROFILE, get_user_profile, update_user_profile
 
 app = FastAPI(
     title="Lumen API",
@@ -183,6 +184,32 @@ def get_candidate_profile(campus_id: str):
         return {"status": "error", "message": str(e)}
 
 
+
+
+class ProfileUpdate(BaseModel):
+    """Partial user profile. Only keys present are merged; unknown keys are ignored."""
+
+    name: Optional[str] = None
+    university: Optional[str] = None
+    year: Optional[str] = None
+    career_goal: Optional[str] = None
+    focus: Optional[str] = None
+
+
+@app.get("/api/profile")
+def read_user_profile():
+    """Return the stored user profile (defaults for any missing field)."""
+    return {"status": "success", "profile": get_user_profile(), "fields": list(DEFAULT_PROFILE)}
+
+
+@app.put("/api/profile")
+def write_user_profile(req: ProfileUpdate):
+    """
+    Merge the submitted profile fields into the local store. The chat system prompt
+    reads this profile each turn, so saved details personalize later answers.
+    """
+    patch = req.model_dump(exclude_none=True)
+    return {"status": "success", "profile": update_user_profile(patch)}
 
 
 class ChatTurn(BaseModel):

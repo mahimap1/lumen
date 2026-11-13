@@ -142,6 +142,24 @@ export async function generateHtmlWidget(concept, courseContext = "STEM") {
 `;
 }
 
+export async function getUserProfile() {
+  const res = await fetch(`${API_BASE_URL}/profile`);
+  if (!res.ok) throw new Error(`Failed to load profile (${res.status})`);
+  const data = await res.json();
+  return data.profile || {};
+}
+
+export async function updateUserProfile(patch) {
+  const res = await fetch(`${API_BASE_URL}/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch)
+  });
+  if (!res.ok) throw new Error(`Failed to save profile (${res.status})`);
+  const data = await res.json();
+  return data.profile || {};
+}
+
 export async function sendSessionMessage(message, history = [], courseContext = null, model = null) {
   try {
     const res = await fetch(`${API_BASE_URL}/sessions/message`, {

@@ -1,6 +1,7 @@
 import React from "react";
 import { Check, Settings, X } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/models";
+import UserProfileForm from "./UserProfileForm";
 
 export default function SettingsPane({ isOpen, onClose, model, onModelChange }) {
   if (!isOpen) return null;
@@ -31,7 +32,11 @@ export default function SettingsPane({ isOpen, onClose, model, onModelChange }) 
         </div>
 
         {/* Body */}
-        <div className="px-5 py-4 flex flex-col gap-3">
+        <div className="px-5 py-4 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+          <UserProfileForm />
+
+          <div className="border-t border-zinc-800" />
+
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Model</p>
             <p className="text-xs text-zinc-500 mt-0.5">
