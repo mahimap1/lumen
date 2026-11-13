@@ -2,18 +2,18 @@
 // (see backend/services/chat_service.py) so either choice is valid.
 export const MODEL_STORAGE_KEY = "lumen_model_v1";
 
-export const DEFAULT_MODEL = "gemini-3.5-flash-lite";
+export const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 
 export const MODEL_OPTIONS = [
   {
-    id: "gemini-3.5-flash-lite",
-    label: "Gemini 3.5 Flash Lite",
+    id: "gemini-3.1-flash-lite",
+    label: "Gemini 3.1 Flash Lite",
     tag: "Testing",
-    description: "Cheap but capable — the everyday model."
+    description: "Cheap, fast and reliable — the everyday model."
   },
   {
-    id: "gemini-3.6-flash",
-    label: "Gemini 3.6 Flash",
+    id: "gemini-3.8-flash",
+    label: "Gemini 3.8 Flash",
     tag: "Demo",
     description: "Stronger and a bit pricier — use it for the demo."
   }

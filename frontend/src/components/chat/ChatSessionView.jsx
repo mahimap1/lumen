@@ -1,11 +1,18 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import MessageScroller from "./MessageScroller";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
-import { Badge } from "@/components/ui/badge";
+import TopicPicker from "./TopicPicker";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Trash2 } from "lucide-react";
-import { sendSessionMessage } from "@/services/api";
+import { AlertTriangle, MoreVertical, RotateCcw, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+import { streamSessionMessage } from "@/services/api";
 import { LumenOrbSphere } from "../LumenOrb";
 
 export default function ChatSessionView({
@@ -23,90 +30,172 @@ export default function ChatSessionView({
   const messages = session?.messages ?? [];
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastUserText, setLastUserText] = useState("");
+  const abortRef = useRef(null);
 
   // Strip leading emoji from title if any
   const cleanTitle = (session?.title || "Study Session")
     .replace(/^[\p{Emoji}\u2000-\u3300\s]+/gu, "")
     .trim() || session?.title || "Study Session";
 
-  const handleSend = async (overrideText = null) => {
+  const handleSend = (overrideText = null) => {
     const textToSend = (overrideText || input).trim();
     if (!textToSend || isLoading) return;
+    setInput("");
+    runSend(textToSend, messages);
+  };
 
-    const userMessageId = `u-${Date.now()}`;
-    const userMsg = {
-      id: userMessageId,
-      role: "user",
-      content: textToSend
+  // Re-run the last turn after a failure. Drops the trailing user bubble so the
+  // retried turn does not duplicate it in the transcript.
+  const handleRetry = () => {
+    if (isLoading || !lastUserText) return;
+    const base =
+      messages.length && messages[messages.length - 1].role === "user"
+        ? messages.slice(0, -1)
+        : messages;
+    runSend(lastUserText, base);
+  };
+
+  const runSend = async (textToSend, baseMessages) => {
+    const userMsg = { id: `u-${Date.now()}`, role: "user", content: textToSend };
+    let thread = [...baseMessages, userMsg];
+    let assistantMsg = {
+      id: `a-${Date.now()}`,
+      role: "assistant",
+      content: "",
+      tool_executions: [],
+      widgets: [],
+      engine: "gemini"
+    };
+    thread = [...thread, assistantMsg];
+
+    setError(null);
+    setLastUserText(textToSend);
+    setIsLoading(true);
+    if (onUpdateSession) onUpdateSession(session.id, { messages: thread });
+
+    // Replace the trailing streaming assistant message with an updated copy.
+    const commit = (patch) => {
+      assistantMsg = { ...assistantMsg, ...patch };
+      thread = [...thread.slice(0, -1), assistantMsg];
+      if (onUpdateSession) onUpdateSession(session.id, { messages: thread });
     };
 
-    const newMessages = [...messages, userMsg];
-    setInput("");
-    setIsLoading(true);
+    // Drop the trailing placeholder bubble. Used when a turn fails before any
+    // content arrives, so no empty message is left in the transcript.
+    const dropPlaceholder = () => {
+      thread = thread.slice(0, -1);
+      if (onUpdateSession) onUpdateSession(session.id, { messages: thread });
+    };
 
-    if (onUpdateSession) {
-      onUpdateSession(session.id, { messages: newMessages });
-    }
+    // Coalesce token deltas into one state update per animation frame.
+    let pending = "";
+    let flushScheduled = false;
+    let failed = false;
+    const flush = () => {
+      flushScheduled = false;
+      if (pending) {
+        commit({ content: assistantMsg.content + pending });
+        pending = "";
+      }
+    };
+    const appendDelta = (text) => {
+      pending += text;
+      if (!flushScheduled) {
+        flushScheduled = true;
+        requestAnimationFrame(flush);
+      }
+    };
+
+    // Surface a failure as a banner rather than an assistant message, so it is
+    // never persisted into the transcript or replayed as model history.
+    const fail = (message) => {
+      failed = true;
+      flush();
+      if (assistantMsg.content) {
+        commit({ content: assistantMsg.content });
+      } else {
+        dropPlaceholder();
+      }
+      setError(message);
+    };
+
+    const addWidgetToWorkspace = (w) => {
+      if (!onAddWidget) return;
+      onAddWidget({
+        id: w.id,
+        title: w.title,
+        desc: w.explanation || w.concept,
+        topic: w.concept,
+        html: w.html_code || "",
+        html_code: w.html_code || "",
+        trackId: session.trackId,
+        trackCode: track?.code || "CMSC",
+        trackTag: track?.tagColor || "blue",
+        trackType: track?.type || "course",
+        engine: "Interactive HTML/CSS/JS",
+        sessionId: session.id,
+        createdAt: Date.now()
+      });
+    };
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const courseContext = track ? `${track.code} ${track.name}` : cleanTitle;
-      const history = messages.map(({ role, content }) => ({ role, content }));
+      const history = baseMessages.map(({ role, content }) => ({ role, content }));
 
-      const replyData = await sendSessionMessage(textToSend, history, courseContext, model);
+      await streamSessionMessage(
+        textToSend,
+        history,
+        courseContext,
+        model,
+        (event) => {
+          if (failed) return;
+          if (event.type === "delta") {
+            appendDelta(event.text || "");
+          } else if (event.type === "tool") {
+            flush();
+            commit({ tool_executions: [...assistantMsg.tool_executions, event] });
+          } else if (event.type === "widget" && event.widget) {
+            flush();
+            commit({ widgets: [...assistantMsg.widgets, event.widget] });
+            addWidgetToWorkspace(event.widget);
+          } else if (event.type === "error") {
+            fail(event.message || "Something went wrong. Please try again.");
+          }
+        },
+        controller.signal
+      );
 
-      const assistantMsg = {
-        id: `a-${Date.now()}`,
-        role: "assistant",
-        content: replyData.content || "I have analyzed your query.",
-        tool_executions: replyData.tool_executions || [],
-        widgets: replyData.widgets || [],
-        engine: replyData.engine || "gemini"
-      };
-
-      const finalMessages = [...newMessages, assistantMsg];
-
-      if (onUpdateSession) {
-        onUpdateSession(session.id, { messages: finalMessages });
+      flush();
+      if (!failed && !assistantMsg.content) {
+        commit({ content: "I wasn't able to put together a response for that. Try rephrasing your question." });
       }
-
-      // If any widget was generated, sync it to the workspace widgets list
-      if (replyData.widgets && replyData.widgets.length > 0 && onAddWidget) {
-        replyData.widgets.forEach((w) => {
-          onAddWidget({
-            id: w.id,
-            title: w.title,
-            desc: w.explanation || w.concept,
-            topic: w.concept,
-            html: w.html_code || w.html || "",       // full HTML for sandbox rendering
-            html_code: w.html_code || w.html || "",  // alias used by WidgetSandboxModal
-            trackId: session.trackId,
-            trackCode: track?.code || "CMSC",
-            trackTag: track?.tagColor || "blue",
-            trackType: track?.type || "course",
-            engine: "Interactive HTML/CSS/JS",
-            sessionId: session.id,
-            createdAt: Date.now()
-          });
-        });
-      }
-    } catch (err) {
-      const errMsg = {
-        id: `err-${Date.now()}`,
-        role: "assistant",
-        content: "Sorry, I ran into an error connecting to the server. Please check that the backend is running.",
-        tool_executions: [],
-        widgets: []
-      };
-      const finalErrMessages = [...newMessages, errMsg];
-      if (onUpdateSession) {
-        onUpdateSession(session.id, { messages: finalErrMessages });
+    } catch {
+      flush();
+      if (controller.signal.aborted) {
+        // User stopped generation — keep whatever streamed, no error banner.
+        if (assistantMsg.content) commit({ content: assistantMsg.content });
+        else dropPlaceholder();
+      } else {
+        fail("Sorry, I couldn't reach the server. Check that the backend is running, then try again.");
       }
     } finally {
+      abortRef.current = null;
       setIsLoading(false);
     }
   };
 
+  const handleStop = () => {
+    abortRef.current?.abort();
+  };
+
   const handleClearHistory = () => {
+    if (!window.confirm("Clear this conversation? The messages will be removed.")) return;
+    setError(null);
     const cleared = [
       {
         id: `reinit-${Date.now()}`,
@@ -136,11 +225,16 @@ export default function ChatSessionView({
     );
   }
 
-  const currentCategory = track?.type === "career"
-    ? "career"
-    : track?.type === "skill" || track?.type === "credential"
-    ? "skills"
-    : "classes";
+  // A reply is "still starting" while the trailing assistant message has no
+  // content yet — then we show the typing dots instead of an empty bubble.
+  const lastMsg = messages[messages.length - 1];
+  const showTyping =
+    isLoading &&
+    (!lastMsg ||
+      lastMsg.role !== "assistant" ||
+      (!lastMsg.content &&
+        !(lastMsg.tool_executions && lastMsg.tool_executions.length) &&
+        !(lastMsg.widgets && lastMsg.widgets.length)));
 
   const handleSelectTrack = (trackId) => {
     if (!onUpdateSession || !session) return;
@@ -170,91 +264,63 @@ export default function ChatSessionView({
     });
   };
 
-  const handleSelectCategory = (catKey) => {
-    // Pick first track belonging to this category
-    const catTrack = tracks.find((t) => {
-      if (catKey === "classes") return (t.type || "course") === "course";
-      if (catKey === "career") return t.type === "career";
-      if (catKey === "skills") return t.type === "skill" || t.type === "credential";
-      return false;
-    });
-    if (catTrack) {
-      handleSelectTrack(catTrack.id);
-    }
-  };
-
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950/40 relative overflow-hidden">
-      {/* Centered Top Header Bar with Direct Topic Category Tabs (Classes / Career / Skills) */}
+      {/* Centered Top Header Bar */}
       <header className="flex-none px-4 sm:px-6 py-2.5 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-md flex items-center justify-between gap-3 relative z-10">
-        {/* Left: Topic Selector Pills */}
-        <div className="flex items-center gap-1.5 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800/90 shadow-inner">
-          <span className="text-[11px] font-semibold text-zinc-400 px-2 uppercase tracking-wider hidden md:inline">
-            Topic:
-          </span>
-          {[
-            { key: "classes", label: "Classes", icon: "📘" },
-            { key: "career", label: "Career", icon: "💼" },
-            { key: "skills", label: "Skills", icon: "🛠️" }
-          ].map((cat) => {
-            const isCatActive = currentCategory === cat.key;
-            return (
-              <button
-                key={cat.key}
-                type="button"
-                onClick={() => handleSelectCategory(cat.key)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  isCatActive
-                    ? "bg-yellow-400/15 text-yellow-400 border border-yellow-400/30 shadow-sm"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent"
-                }`}
+        {/* Left: spacer to keep the title visually centered */}
+        <div className="w-7 flex-shrink-0" aria-hidden="true" />
+
+        {/* Center: Current topic (click to switch) */}
+        <div className="flex items-center justify-center min-w-0 mx-auto">
+          <TopicPicker
+            title={cleanTitle}
+            track={track}
+            tracks={tracks}
+            selectedTrackId={session?.trackId}
+            onSelectTrack={handleSelectTrack}
+          />
+        </div>
+
+        {/* Right: chat options */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="w-7 h-7 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                aria-label="Chat options"
+                title="Chat options"
               >
-                <span>{cat.icon}</span>
-                <span className="font-semibold">{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Center: Current active topic & code badge */}
-        <div className="flex items-center gap-2 max-w-[40%] truncate mx-auto">
-          <h1 className="text-xs sm:text-sm font-semibold text-zinc-100 tracking-tight truncate">
-            {cleanTitle}
-          </h1>
-          {track && (
-            <Badge
-              variant="outline"
-              className="text-[10px] sm:text-[11px] py-0.5 px-2 text-yellow-400 border-yellow-400/30 bg-yellow-400/10 font-medium tracking-wide flex-shrink-0"
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-44 bg-zinc-900 border-zinc-800 text-zinc-200 shadow-2xl p-1 rounded-xl"
             >
-              {track.code}
-            </Badge>
-          )}
-        </div>
-
-        {/* Right: Reset & Delete Actions */}
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleClearHistory}
-            className="text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 gap-1.5 h-7 px-2.5 rounded-lg"
-            title="Reset conversation thread"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reset</span>
-          </Button>
-          {onDeleteSession && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleDeleteSession}
-              className="text-xs text-zinc-400 hover:text-red-400 hover:bg-red-500/10 gap-1.5 h-7 px-2.5 rounded-lg"
-              title="Delete this chat"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Delete</span>
-            </Button>
-          )}
+              <DropdownMenuItem
+                onClick={handleClearHistory}
+                className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs flex items-center gap-2 hover:bg-zinc-800 focus:bg-zinc-800"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Clear chat</span>
+              </DropdownMenuItem>
+              {onDeleteSession && (
+                <>
+                  <DropdownMenuSeparator className="bg-zinc-800/80 my-1" />
+                  <DropdownMenuItem
+                    onClick={handleDeleteSession}
+                    className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs flex items-center gap-2 text-red-400 hover:bg-red-500/10 focus:bg-red-500/10 focus:text-red-300"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete chat</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
@@ -278,21 +344,29 @@ export default function ChatSessionView({
               </div>
             )}
 
-            {messages.map((m) => (
-              <ChatMessage
-                key={m.id}
-                message={m}
-                onOpenVisualizer={onOpenVisualizer}
-              />
-            ))}
+            {messages.map((m, idx) => {
+              if (isLoading && showTyping && idx === messages.length - 1) return null;
+              return (
+                <ChatMessage
+                  key={m.id}
+                  message={m}
+                  onOpenVisualizer={onOpenVisualizer}
+                />
+              );
+            })}
 
-            {/* Loading Indicator */}
-            {isLoading && (
-              <div className="flex items-center gap-3 py-2 px-1 animate-in fade-in">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400 animate-ping" />
-                <span className="text-zinc-400 text-xs font-medium">
-                  Lumen is querying campus data & reasoning...
-                </span>
+            {/* Typing indicator — shown until the reply starts streaming */}
+            {isLoading && showTyping && (
+              <div className="flex justify-start animate-in fade-in">
+                <div className="rounded-2xl rounded-bl-sm bg-zinc-900/90 border border-zinc-800/80 px-4 py-3.5 flex items-center gap-1.5">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -301,15 +375,32 @@ export default function ChatSessionView({
 
       {/* Fixed Bottom Input Bar (ChatGPT / Gemini dock) */}
       <div className="flex-none bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent pt-3">
+        {error && (
+          <div className="w-full max-w-3xl mx-auto px-4 mb-2.5">
+            <div
+              role="alert"
+              className="flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-200 animate-in fade-in"
+            >
+              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <span className="flex-1 leading-snug">{error}</span>
+              <button
+                type="button"
+                onClick={handleRetry}
+                disabled={isLoading || !lastUserText}
+                className="flex-shrink-0 text-xs font-semibold text-red-300 hover:text-white px-2 py-1 rounded-md hover:bg-red-500/20 transition-colors disabled:opacity-50"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
         <ChatInput
           input={input}
           setInput={setInput}
           onSend={handleSend}
+          onStop={handleStop}
           isLoading={isLoading}
           showQuickPrompts={messages.length <= 2}
-          tracks={tracks}
-          selectedTrackId={session?.trackId}
-          onSelectTrack={handleSelectTrack}
         />
       </div>
     </div>

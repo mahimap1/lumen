@@ -319,6 +319,7 @@ export default function App() {
 
           {activeView === "session" && (
             <ChatSessionView
+              key={currentSession?.id}
               session={currentSession}
               track={currentTrack}
               tracks={tracks}

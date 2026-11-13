@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import WidgetSandboxModal from "../WidgetSandboxModal";
@@ -38,14 +41,9 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
     >
       {/* Message Content Container */}
       <div className={`flex flex-col w-full max-w-[92%] sm:max-w-[85%] ${isAssistant ? "items-start" : "items-end"}`}>
-        {/* Role & Badge */}
+        {/* Role */}
         <div className="flex items-center gap-2 mb-1 px-1 text-xs text-zinc-400 font-medium">
           <span>{isAssistant ? "Lumen" : "You"}</span>
-          {isAssistant && message.engine && (
-            <span className="text-[10px] text-zinc-500 bg-zinc-800/80 px-1.5 py-0.2 rounded border border-zinc-700/50">
-              Gemini AI
-            </span>
-          )}
         </div>
 
         {/* Message Bubble / Body */}
@@ -59,6 +57,8 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
           {/* Formatted Content with ReactMarkdown */}
           <div className="leading-relaxed">
             <ReactMarkdown
+              remarkPlugins={[remarkMath]}
+              rehypePlugins={[rehypeKatex]}
               components={{
                 p: ({ children }) => (
                   <p className="mb-2.5 last:mb-0 leading-relaxed text-zinc-200">
@@ -86,7 +86,7 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
                 li: ({ children }) => (
                   <li className="leading-relaxed">{children}</li>
                 ),
-                code: ({ inline, className, children, ...props }) => {
+                code: ({ children }) => {
                   return (
                     <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-yellow-300 font-mono text-xs border border-zinc-700/50">
                       {children}
@@ -305,7 +305,7 @@ export default function ChatMessage({ message, onOpenVisualizer }) {
                         onClick={() => setSandboxWidget({ ...widget, html: htmlSrc, html_code: htmlSrc })}
                         title="Click to expand in sandbox"
                       >
-                        <div className="h-52 w-full overflow-hidden">
+                        <div className="h-72 w-full overflow-hidden">
                           <iframe
                             srcDoc={htmlSrc}
                             title={widget.title}

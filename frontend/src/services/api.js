@@ -160,30 +160,48 @@ export async function updateUserProfile(patch) {
   return data.profile || {};
 }
 
-export async function sendSessionMessage(message, history = [], courseContext = null, model = null) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/sessions/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        history,
-        course_context: courseContext,
-        model: model || null
-      })
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (err) {
-    console.warn("Error sending message to session:", err);
+// Streams a chat turn from the backend (Server-Sent Events) and invokes `onEvent`
+// for every {"type": "delta"|"tool"|"widget"|"error"|"done", ...} frame.
+export async function streamSessionMessage(message, history = [], courseContext = null, model = null, onEvent, signal = undefined) {
+  const res = await fetch(`${API_BASE_URL}/sessions/message`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify({
+      message,
+      history,
+      course_context: courseContext,
+      model: model || null
+    }),
+    signal
+  });
+
+  if (!res.ok || !res.body) {
+    throw new Error(`Chat request failed (${res.status})`);
   }
-  return {
-    role: "assistant",
-    content: "I'm having trouble connecting to the Lumen backend service. Please check your backend connection.",
-    tool_executions: [],
-    widgets: [],
-    status: "error"
-  };
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() || "";
+
+    for (const frame of frames) {
+      const line = frame.trim();
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload) continue;
+      try {
+        onEvent(JSON.parse(payload));
+      } catch (err) {
+        console.warn("Skipping malformed chat event:", err);
+      }
+    }
+  }
 }
 

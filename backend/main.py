@@ -1,12 +1,15 @@
+import json
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List
 
 from config import STATIC_DIR
 from services.gemini_service import generate_interactive_widget_html
-from services.chat_service import send_chat_message
+from services.chat_service import stream_chat_message
 from services.memory_service import DEFAULT_PROFILE, get_user_profile, update_user_profile
 
 app = FastAPI(
@@ -224,19 +227,35 @@ class SessionMessageRequest(BaseModel):
     model: Optional[str] = None
 
 
+def _sse(event: dict) -> str:
+    """Serialize one chat event as a Server-Sent Events frame."""
+    return f"data: {json.dumps(event)}\n\n"
+
+
 @app.post("/api/sessions/message")
 async def send_message_to_session(req: SessionMessageRequest):
     """
-    Stateless chat turn: the client sends prior history; Gemini answers, executing campus
-    SQL and/or generating an interactive widget when required. An optional per-request
-    ``model`` overrides the environment default.
+    Stateless streaming chat turn: the client sends prior history; Lumen streams back
+    text deltas plus any campus-query and rendered-widget events, executing tools via
+    Gemini's native function calling. An optional per-request ``model`` overrides the
+    environment default.
     """
     history = [turn.model_dump() for turn in req.history] if req.history else None
-    return await send_chat_message(
+    events = stream_chat_message(
         message=req.message,
         history=history,
         course_context=req.course_context,
-        model=req.model
+        model=req.model,
+    )
+
+    async def event_stream():
+        async for event in events:
+            yield _sse(event)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
