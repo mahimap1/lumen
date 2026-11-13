@@ -332,18 +332,9 @@ export default function App() {
         </div>
       </main>
 
-      {/* Floating Yellow Mascot Orb: Fades out in session view; directly opens session chat window on click */}
+      {/* Floating Yellow Mascot Orb: Fades out in session view; always starts a fresh chat on click */}
       <LumenOrb
-        onClick={() => {
-          if (sessions.length === 0) {
-            handleStartLumenSession();
-          } else {
-            if (!selectedSessionId) {
-              setSelectedSessionId(sessions[0].id);
-            }
-            setActiveView("session");
-          }
-        }}
+        onClick={() => handleStartLumenSession()}
         isHidden={activeView === "session"}
       />
 

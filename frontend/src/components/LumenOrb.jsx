@@ -67,8 +67,8 @@ export default function LumenOrb({
       <button
         type="button"
         id="lumenBtn"
-        aria-label="Start New Study Session"
-        title="Start New Study Session"
+        aria-label="Start New Chat"
+        title="Start New Chat"
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
